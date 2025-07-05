@@ -1,0 +1,17 @@
+package main
+
+var x int = 10
+var y string = "test"
+
+func add(a int, b int) int {
+    return a + b
+}
+
+func main() {
+    x++
+    y += " world"
+    
+    if x >= 10 && y != "" {
+        z := add(x, 5)
+    }
+}

@@ -1,0 +1,37 @@
+package main
+
+func test() {
+    x := 10
+    y := 20
+    
+    // Operadores aritméticos
+    a := x + y
+    b := x - y  
+    c := x * y
+    d := x / y
+    e := x % y
+    
+    // Operadores de asignación
+    x += 1
+    x -= 1
+    x *= 2
+    x /= 2
+    x %= 3
+    
+    // Operadores de comparación
+    if x < y {}
+    if x <= y {}
+    if x > y {}
+    if x >= y {}
+    if x == y {}
+    if x != y {}
+    
+    // Operadores lógicos
+    if x > 0 && y > 0 {}
+    if x > 0 || y > 0 {}
+    if !true {}
+    
+    // Incremento y decremento
+    x++
+    y--
+}
