@@ -1,6 +1,7 @@
 #include <iostream>
 #include "exp.h"
 #include "visitor.h"
+#include "imp_value_visitor.h"
 
 using namespace std;
 
@@ -114,13 +115,13 @@ AssignStmt::~AssignStmt() { delete lhs; delete rhs; }
 void AssignStmt::accept(Visitor* visitor) { visitor->visit(this); }
 
 ShortVarDecl::ShortVarDecl(list<string> variables, list<Exp*> vals) 
-    : vars(variables), values(vals) {}
+    : identifiers(variables), values(vals) {}
 ShortVarDecl::~ShortVarDecl() {
     for (auto val : values) delete val;
 }
 void ShortVarDecl::accept(Visitor* visitor) { visitor->visit(this); }
 
-IncDecStmt::IncDecStmt(const string& variable, bool inc) : var(variable), isIncrement(inc) {}
+IncDecStmt::IncDecStmt(const string& var, bool inc) : variable(var), isIncrement(inc) {}
 IncDecStmt::~IncDecStmt() {}
 void IncDecStmt::accept(Visitor* visitor) { visitor->visit(this); }
 
@@ -202,3 +203,35 @@ SliceExp::~SliceExp() {
     if (end) delete end;
 }
 void SliceExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+//=== IMPLEMENTACIONES DE ACCEPT PARA ImpValueVisitor ===
+
+// Expresiones
+ImpValue BinaryExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue UnaryExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue NumberExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue StringExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue BoolExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue IdentifierExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue FieldAccessExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue IndexExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue SliceExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue FunctionCallExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+ImpValue StructLiteralExp::accept(ImpValueVisitor* visitor) { return visitor->visit(this); }
+
+// Statements
+void ExprStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void AssignStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void ShortVarDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void IncDecStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void IfStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void ForStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void ReturnStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void VarDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+
+// Declarations
+void TypeDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void FuncDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void Block::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void ImportDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
+void Program::accept(ImpValueVisitor* visitor) { visitor->visit(this); }

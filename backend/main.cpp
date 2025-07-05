@@ -4,6 +4,7 @@
 #include "scanner.h"
 #include "parser.h"
 #include "visitor.h"
+#include "gencode.h"
 
 using namespace std;
 
@@ -54,6 +55,12 @@ int main(int argc, const char* argv[]) {
         cout << "=== AST ===" << endl;
         PrintVisitor printVisitor;
         printVisitor.print(program);
+        cout << endl;
+        
+        // Fase 4: Generar código ensamblador
+        cout << "=== CODIGO ENSAMBLADOR ===" << endl;
+        GoCodeGen codeGen;
+        codeGen.generateCode(program);
         
         // Clean up
         delete program;

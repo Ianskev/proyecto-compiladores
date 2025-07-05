@@ -22,6 +22,7 @@ class CompilerTester:
                 "g++", "-o", "parser_test.exe", 
                 "main.cpp", "scanner.cpp", "token.cpp", 
                 "parser.cpp", "exp.cpp", "visitor.cpp", 
+                "gencode.cpp", "imp_value.cpp",
                 "-std=c++11"
             ], capture_output=True, text=True, timeout=30)
             
