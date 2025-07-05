@@ -1,153 +1,273 @@
 #include <iostream>
 #include "exp.h"
 #include "visitor.h"
+
 using namespace std;
 
-///////////////////////////////////////////////////////////////////////////////////
-int BinaryExp::accept(Visitor* visitor) {
-    return visitor->visit(this);
+//=== PrintVisitor Implementation ===
+PrintVisitor::PrintVisitor() : indentLevel(0) {}
+
+void PrintVisitor::printIndent() {
+    for (int i = 0; i < indentLevel; i++) {
+        cout << "  ";
+    }
 }
 
-int NumberExp::accept(Visitor* visitor) {
-    return visitor->visit(this);
+void PrintVisitor::increaseIndent() {
+    indentLevel++;
 }
 
-int BoolExp::accept(Visitor* visitor) {
-    return visitor->visit(this);
+void PrintVisitor::decreaseIndent() {
+    if (indentLevel > 0) indentLevel--;
 }
 
-int IdentifierExp::accept(Visitor* visitor) {
-    return visitor->visit(this);
+void PrintVisitor::print(Program* program) {
+    program->accept(this);
 }
 
-int AssignStatement::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-
-int PrintStatement::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-
-int IfStatement::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-
-int WhileStatement::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-int VarDec::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-
-int VarDecList::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-int StatementList::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-int Body::accept(Visitor* visitor) {
-    visitor->visit(this);
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////////
-
-int PrintVisitor::visit(BinaryExp* exp) {
+// Expresiones
+void PrintVisitor::visit(BinaryExp* exp) {
     exp->left->accept(this);
-    cout << ' ' << Exp::binopToChar(exp->op) << ' ';
+    cout << " " << Exp::binopToString(exp->op) << " ";
     exp->right->accept(this);
-    return 0;
 }
 
-int PrintVisitor::visit(NumberExp* exp) {
+void PrintVisitor::visit(UnaryExp* exp) {
+    cout << Exp::unopToString(exp->op);
+    exp->exp->accept(this);
+}
+
+void PrintVisitor::visit(NumberExp* exp) {
     cout << exp->value;
-    return 0;
 }
 
-int PrintVisitor::visit(BoolExp* exp) {
-    if(exp->value) cout << "true";
-    else cout << "false";
-    return 0;
+void PrintVisitor::visit(StringExp* exp) {
+    cout << "\"" << exp->value << "\"";
 }
 
-int PrintVisitor::visit(IdentifierExp* exp) {
+void PrintVisitor::visit(BoolExp* exp) {
+    cout << (exp->value ? "true" : "false");
+}
+
+void PrintVisitor::visit(IdentifierExp* exp) {
     cout << exp->name;
-    return 0;
 }
 
-void PrintVisitor::visit(AssignStatement* stm) {
-    cout << stm->id << " = ";
-    stm->rhs->accept(this);
-    cout << ";";
+void PrintVisitor::visit(FieldAccessExp* exp) {
+    exp->object->accept(this);
+    cout << "." << exp->field;
 }
 
-void PrintVisitor::visit(PrintStatement* stm) {
-    cout << "print(";
-    stm->e->accept(this);
-    cout << ");";
+void PrintVisitor::visit(IndexExp* exp) {
+    exp->array->accept(this);
+    cout << "[";
+    exp->index->accept(this);
+    cout << "]";
 }
 
-void PrintVisitor::visit(IfStatement* stm) {
+void PrintVisitor::visit(FunctionCallExp* exp) {
+    cout << exp->funcName << "(";
+    bool first = true;
+    for (auto arg : exp->args) {
+        if (!first) cout << ", ";
+        arg->accept(this);
+        first = false;
+    }
+    cout << ")";
+}
+
+void PrintVisitor::visit(StructLiteralExp* exp) {
+    cout << exp->typeName << "{";
+    bool first = true;
+    for (auto val : exp->values) {
+        if (!first) cout << ", ";
+        val->accept(this);
+        first = false;
+    }
+    cout << "}";
+}
+
+// Tipos
+void PrintVisitor::visit(BasicType* type) {
+    cout << type->typeName;
+}
+
+void PrintVisitor::visit(StructType* type) {
+    cout << "struct {" << endl;
+    increaseIndent();
+    for (auto& field : type->fields) {
+        printIndent();
+        cout << field.first << " ";
+        field.second->accept(this);
+        cout << endl;
+    }
+    decreaseIndent();
+    printIndent();
+    cout << "}";
+}
+
+void PrintVisitor::visit(IdentifierType* type) {
+    cout << type->name;
+}
+
+// Sentencias
+void PrintVisitor::visit(ExprStmt* stmt) {
+    stmt->expression->accept(this);
+}
+
+void PrintVisitor::visit(AssignStmt* stmt) {
+    stmt->lhs->accept(this);
+    switch (stmt->op) {
+        case ASSIGN_OP: cout << " = "; break;
+        case PLUS_ASSIGN_OP: cout << " += "; break;
+        case MINUS_ASSIGN_OP: cout << " -= "; break;
+        case MUL_ASSIGN_OP: cout << " *= "; break;
+        case DIV_ASSIGN_OP: cout << " /= "; break;
+        case MOD_ASSIGN_OP: cout << " %= "; break;
+    }
+    stmt->rhs->accept(this);
+}
+
+void PrintVisitor::visit(ShortVarDecl* stmt) {
+    bool first = true;
+    for (auto& var : stmt->vars) {
+        if (!first) cout << ", ";
+        cout << var;
+        first = false;
+    }
+    cout << " := ";
+    first = true;
+    for (auto val : stmt->values) {
+        if (!first) cout << ", ";
+        val->accept(this);
+        first = false;
+    }
+}
+
+void PrintVisitor::visit(IncDecStmt* stmt) {
+    cout << stmt->var;
+    if (stmt->isIncrement) cout << "++";
+    else cout << "--";
+}
+
+void PrintVisitor::visit(IfStmt* stmt) {
     cout << "if ";
-    stm->condition->accept(this);
-    cout << " then" << endl;
-    stm->then->accept(this);
-    if(stm->els){
-        cout << "else" << endl;
-        stm->els->accept(this);
-    }
-    cout << "endif";
-}
-
-void PrintVisitor::imprimir(Program* program){
-    program->body->accept(this);
-};
-
-
-void PrintVisitor::visit(WhileStatement* stm){
-    cout << "while ";
-    stm->condition->accept(this);
-    cout << " do" << endl;
-    stm->b->accept(this);
-    cout << "endwhile";
-}
-
-
-void PrintVisitor::visit(VarDec* stm){
-    cout << "var ";
-    cout << stm->type;
+    stmt->condition->accept(this);
     cout << " ";
-    for(auto i: stm->vars){
-        cout << i;
-        if(i != stm->vars.back()) cout << ", ";
+    stmt->thenBlock->accept(this);
+    if (stmt->elseBlock) {
+        cout << " else ";
+        stmt->elseBlock->accept(this);
     }
-    cout << ";";
 }
 
-void PrintVisitor::visit(VarDecList* stm){
-    for(auto i: stm->vardecs){
-        i->accept(this);
+void PrintVisitor::visit(ForStmt* stmt) {
+    cout << "for ";
+    if (stmt->init || stmt->condition || stmt->post) {
+        if (stmt->init) stmt->init->accept(this);
+        cout << "; ";
+        if (stmt->condition) stmt->condition->accept(this);
+        cout << "; ";
+        if (stmt->post) stmt->post->accept(this);
+    } else if (stmt->condition) {
+        stmt->condition->accept(this);
+    }
+    cout << " ";
+    stmt->body->accept(this);
+}
+
+void PrintVisitor::visit(ReturnStmt* stmt) {
+    cout << "return";
+    if (stmt->expression) {
+        cout << " ";
+        stmt->expression->accept(this);
+    }
+}
+
+void PrintVisitor::visit(VarDecl* stmt) {
+    cout << "var ";
+    bool first = true;
+    for (auto& name : stmt->names) {
+        if (!first) cout << ", ";
+        cout << name;
+        first = false;
+    }
+    cout << " ";
+    stmt->type->accept(this);
+    if (!stmt->values.empty()) {
+        cout << " = ";
+        first = true;
+        for (auto val : stmt->values) {
+            if (!first) cout << ", ";
+            val->accept(this);
+            first = false;
+        }
+    }
+}
+
+// Declaraciones
+void PrintVisitor::visit(TypeDecl* decl) {
+    cout << "type " << decl->name << " ";
+    decl->structType->accept(this);
+}
+
+void PrintVisitor::visit(FuncDecl* decl) {
+    cout << "func " << decl->name << "(";
+    bool first = true;
+    for (auto& param : decl->params) {
+        if (!first) cout << ", ";
+        cout << param.first << " ";
+        param.second->accept(this);
+        first = false;
+    }
+    cout << ")";
+    if (decl->returnType) {
+        cout << " ";
+        decl->returnType->accept(this);
+    }
+    cout << " ";
+    decl->body->accept(this);
+}
+
+void PrintVisitor::visit(Block* block) {
+    cout << "{" << endl;
+    increaseIndent();
+    for (auto stmt : block->statements) {
+        printIndent();
+        stmt->accept(this);
         cout << endl;
     }
+    decreaseIndent();
+    printIndent();
+    cout << "}";
 }
 
-void PrintVisitor::visit(StatementList* stm){
-    for(auto i: stm->stms){
-        i->accept(this);
+void PrintVisitor::visit(ImportDecl* decl) {
+    cout << "import " << decl->path;
+}
+
+void PrintVisitor::visit(Program* program) {
+    cout << "package " << program->packageName << endl << endl;
+    
+    for (auto imp : program->imports) {
+        imp->accept(this);
         cout << endl;
     }
+    if (!program->imports.empty()) cout << endl;
+    
+    for (auto var : program->globalVars) {
+        var->accept(this);
+        cout << endl;
+    }
+    if (!program->globalVars.empty()) cout << endl;
+    
+    for (auto type : program->types) {
+        type->accept(this);
+        cout << endl << endl;
+    }
+    
+    for (auto func : program->functions) {
+        func->accept(this);
+        cout << endl << endl;
+    }
 }
-
-void PrintVisitor::visit(Body* stm){
-    stm->vardecs->accept(this);
-    cout << endl;
-    stm->slist->accept(this);
-}
-
