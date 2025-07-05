@@ -2,7 +2,7 @@
 #define PARSER_GO_H
 
 #include "scanner.h"
-#include "exp_go.h"
+#include "exp.h"
 
 class GoParser {
 private:
