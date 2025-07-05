@@ -65,6 +65,9 @@ private:
     list<Exp*> parseExpressionList();
     list<string> parseIdentifierList();
     
+    // Struct literal parsing
+    list<Exp*> parseStructLiteralValues();
+    
     // Literals
     StructLiteralExp* parseStructLiteral(const string& typeName);
     

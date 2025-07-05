@@ -1,6 +1,7 @@
 #include "parser.h"
 #include <iostream>
 #include <stdexcept>
+#include <cctype>
 
 GoParser::GoParser(Scanner* sc) : scanner(sc), current(nullptr), previous(nullptr) {
     advance(); // Load first token
@@ -249,15 +250,28 @@ StructType* GoParser::parseStructType() {
     list<pair<string, Type*>> fields;
     
     while (!check(Token::RBRACE) && !isAtEnd()) {
-        // Parse field: ID Type
+        // Parse field names (can be multiple separated by comma, like "ancho, alto int")
+        list<string> fieldNames;
+        
         if (!check(Token::ID)) {
             error("Expected field name");
         }
-        string fieldName = current->text;
+        fieldNames.push_back(current->text);
         advance();
         
+        // Collect additional names that share the same type
+        while (match(Token::COMMA) && check(Token::ID)) {
+            fieldNames.push_back(current->text);
+            advance();
+        }
+        
+        // Now we should have the type
         Type* fieldType = parseType();
-        fields.push_back(make_pair(fieldName, fieldType));
+        
+        // Add all fields with this type
+        for (const string& name : fieldNames) {
+            fields.push_back(make_pair(name, fieldType));
+        }
     }
     
     if (!match(Token::RBRACE)) {
@@ -675,9 +689,9 @@ Exp* GoParser::parsePrimaryExpr() {
                 error("Expected ')' after function arguments");
             }
             expr = new FunctionCallExp(name, args);
-        } else if (match(Token::LBRACE)) {
-            // Struct literal
-            list<Exp*> values = parseExpressionList();
+        } else if (match(Token::LBRACE) && !name.empty() && isupper(name[0])) {
+            // Struct literal - only if name starts with uppercase (Go convention for types)
+            list<Exp*> values = parseStructLiteralValues();
             if (!match(Token::RBRACE)) {
                 error("Expected '}' after struct literal");
             }
@@ -843,4 +857,69 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
     }
     
     return expr;
+}
+
+// Parse struct literal values (handles both positional and named field syntax)
+list<Exp*> GoParser::parseStructLiteralValues() {
+    list<Exp*> values;
+    
+    if (!check(Token::RBRACE) && !isAtEnd()) {
+        // Simple approach: try to parse first element
+        if (check(Token::ID)) {
+            string firstId = current->text;
+            advance();
+            
+            if (match(Token::COLON)) {
+                // This is named field syntax: field: value
+                Exp* firstValue = parseExpression();
+                values.push_back(firstValue);
+                
+                // Continue with more named fields
+                while (match(Token::COMMA)) {
+                    if (!check(Token::ID)) {
+                        error("Expected field name");
+                    }
+                    advance(); // skip field name
+                    
+                    if (!match(Token::COLON)) {
+                        error("Expected ':' after field name");
+                    }
+                    
+                    values.push_back(parseExpression());
+                }
+            } else {
+                // This is positional syntax - first token was an identifier expression
+                IdentifierExp* firstExpr = new IdentifierExp(firstId);
+                
+                // Handle any postfix operations on this identifier
+                while (true) {
+                    if (match(Token::DOT)) {
+                        if (!check(Token::ID)) {
+                            error("Expected field name after '.'");
+                        }
+                        string fieldName = current->text;
+                        advance();
+                        firstExpr = (IdentifierExp*)new FieldAccessExp(firstExpr, fieldName);
+                    } else {
+                        break;
+                    }
+                }
+                
+                values.push_back(firstExpr);
+                
+                // Continue with more positional values
+                while (match(Token::COMMA)) {
+                    values.push_back(parseExpression());
+                }
+            }
+        } else {
+            // Parse positional values starting with non-identifier
+            values.push_back(parseExpression());
+            while (match(Token::COMMA)) {
+                values.push_back(parseExpression());
+            }
+        }
+    }
+    
+    return values;
 }
