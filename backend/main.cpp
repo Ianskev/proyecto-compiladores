@@ -36,22 +36,52 @@ int main(int argc, const char* argv[]) {
     test_scanner(&scanner_test);
     cout << "Scanner exitoso" << endl;
     cout << endl;
+    
     cout << "Iniciando parsing:" << endl;
     Parser parser(&scanner); 
     try {
-        Program* program = parser.parseProgram();
-        cout << "Parsing exitoso" << endl << endl;
-        cout << "Iniciando Visitor:" << endl;
+        // Detect if this is a Go program by checking for "package" keyword at start
+        bool isGoProgram = false;
+        Scanner detector(input.c_str());
+        Token* first = detector.nextToken();
+        if (first->type == Token::PACKAGE) {
+            isGoProgram = true;
+        }
+        delete first;
+        
         PrintVisitor printVisitor;
-        ImpCODE interpreter;
-        cout << endl;
-        cout << "IMPRIMIR:" << endl;
-        printVisitor.imprimir(program);
-        cout  << endl;
-        cout << endl << "Run program:" << endl;
-        interpreter.interpret(program);
-        cout << "End of program execution" << endl;
-        delete program;
+        ImpCODE codeGenerator;
+        
+        if (isGoProgram) {
+            cout << "Detected Go program, parsing with Go grammar" << endl;
+            GoProgram* program = parser.parseGoProgram();
+            cout << "Parsing exitoso" << endl << endl;
+            
+            cout << "Iniciando Visitor:" << endl;
+            cout << endl;
+            cout << "IMPRIMIR:" << endl;
+            printVisitor.imprimirGo(program);
+            cout << endl;
+            
+            cout << endl << "Generating code:" << endl;
+            codeGenerator.interpretGo(program);
+            cout << "End of code generation" << endl;
+            delete program;
+        } else {
+            Program* program = parser.parseProgram();
+            cout << "Parsing exitoso" << endl << endl;
+            
+            cout << "Iniciando Visitor:" << endl;
+            cout << endl;
+            cout << "IMPRIMIR:" << endl;
+            printVisitor.imprimir(program);
+            cout << endl;
+            
+            cout << endl << "Generating code:" << endl;
+            codeGenerator.interpret(program);
+            cout << "End of code generation" << endl;
+            delete program;
+        }
     } catch (const exception& e) {
         cout << "Error durante la ejecución: " << e.what() << endl;
         return 1;

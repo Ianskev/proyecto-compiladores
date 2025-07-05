@@ -5,12 +5,14 @@ BinaryExp::BinaryExp(Exp* l, Exp* r, BinaryOp op):left(l),right(r),op(op) {}
 NumberExp::NumberExp(int v):value(v) {}
 BoolExp::BoolExp(bool v):value(v) {}
 IdentifierExp::IdentifierExp(const string& n):name(n) {}
+StringExp::StringExp(const string& v):value(v) {}
 
 Exp::~Exp() {}
 BinaryExp::~BinaryExp() { delete left; delete right; }
 NumberExp::~NumberExp() { }
 BoolExp::~BoolExp() { }
 IdentifierExp::~IdentifierExp() { }
+StringExp::~StringExp() {}
 
 AssignStatement::AssignStatement(string id, Exp* e): id(id), rhs(e) {}
 AssignStatement::~AssignStatement() {
@@ -77,7 +79,7 @@ Program::~Program() {
 }
 Stm::~Stm() {}
 string Exp::binopToChar(BinaryOp op) {
-    string  c;
+    string c;
     switch(op) {
         case PLUS_OP: c = "+"; break;
         case MINUS_OP: c = "-"; break;
@@ -86,6 +88,12 @@ string Exp::binopToChar(BinaryOp op) {
         case LT_OP: c = "<"; break;
         case LE_OP: c = "<="; break;
         case EQ_OP: c = "=="; break;
+        case GT_OP: c = ">"; break;
+        case GE_OP: c = ">="; break;
+        case NE_OP: c = "!="; break;
+        case AND_OP: c = "&&"; break;
+        case OR_OP: c = "||"; break;
+        case MOD_OP: c = "%"; break;
         default: c = "$";
     }
     return c;

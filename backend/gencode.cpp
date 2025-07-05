@@ -1,4 +1,5 @@
 #include "gencode.hh"
+#include <sstream>
 
 ImpValue BinaryExp::accept(ImpValueVisitor* v) {
     return v->visit(this);
@@ -16,9 +17,13 @@ ImpValue IdentifierExp::accept(ImpValueVisitor* v) {
     return v->visit(this);
 }
 
+ImpValue StringExp::accept(ImpValueVisitor* v) {
+    return v->visit(this);
+}
 
-
-
+ImpValue StructFieldAccess::accept(ImpValueVisitor* v) {
+    return v->visit(this);
+}
 
 void AssignStatement::accept(ImpValueVisitor* v) {
     return v->visit(this);
@@ -81,6 +86,40 @@ void ImpCODE::interpret(Program* p) {
     cout << ".section .note.GNU-stack,\"\",@progbits" << endl;
 }
 
+void ImpCODE::interpretGo(GoProgram* p) {
+    env.clear();
+    etiquetas = 0;
+    current_offset = 0;
+    string_count = 0;
+    string_literals.clear();
+    structTypes.clear();
+
+    cout << ".data" << endl;
+    cout << "print_int_fmt: .string \"%ld\\n\"" << endl;
+    cout << "print_bool_fmt: .string \"%s\\n\"" << endl;
+    cout << "true_str: .string \"true\"" << endl;
+    cout << "false_str: .string \"false\"" << endl;
+    cout << "print_str_fmt: .string \"%s\\n\"" << endl;
+    
+    p->accept(this);
+    
+    // Output string literals
+    for (size_t i = 0; i < string_literals.size(); i++) {
+        cout << "str" << i << ": .string \"" << string_literals[i] << "\"" << endl;
+    }
+    
+    cout << ".text" << endl;
+    cout << ".globl main" << endl;
+    cout << "main:" << endl;
+    cout << "  pushq %rbp" << endl;
+    cout << "  movq %rsp, %rbp" << endl;
+    p->body->accept(this);
+    cout << "  movl $0, %eax" << endl;
+    cout << "  leave" << endl;
+    cout << "  ret" << endl;
+    cout << ".section .note.GNU-stack,\"\",@progbits" << endl;
+}
+
 void ImpCODE::visit(Program* p) {
     env.add_level();
     p->body->accept(this);
@@ -130,8 +169,31 @@ void ImpCODE::visit(AssignStatement* s) {
 
 void ImpCODE::visit(PrintStatement* s) {
     s->e->accept(this);
-    cout << "  movq %rax, %rsi" << endl;
-    cout << "  leaq print_fmt(%rip), %rdi" << endl;
+    
+    // Check if expression is a string
+    StringExp* strExp = dynamic_cast<StringExp*>(s->e);
+    if (strExp) {
+        cout << "  movq %rax, %rsi" << endl;
+        cout << "  leaq print_str_fmt(%rip), %rdi" << endl;
+    }
+    // Check if expression is a boolean
+    else if (dynamic_cast<BoolExp*>(s->e)) {
+        cout << "  testq %rax, %rax" << endl;
+        cout << "  je print_false_" << etiquetas << endl;
+        cout << "  leaq true_str(%rip), %rsi" << endl;
+        cout << "  jmp print_bool_end_" << etiquetas << endl;
+        cout << "print_false_" << etiquetas << ":" << endl;
+        cout << "  leaq false_str(%rip), %rsi" << endl;
+        cout << "print_bool_end_" << etiquetas << ":" << endl;
+        etiquetas++;
+        cout << "  leaq print_bool_fmt(%rip), %rdi" << endl;
+    }
+    // Default to integer printing
+    else {
+        cout << "  movq %rax, %rsi" << endl;
+        cout << "  leaq print_int_fmt(%rip), %rdi" << endl;
+    }
+    
     cout << "  movl $0, %eax" << endl;
     cout << "  call printf@PLT" << endl;
 }
@@ -245,4 +307,94 @@ ImpValue ImpCODE::visit(IdentifierExp* e) {
         cerr << "Error: variable " << e->name << " no declarada" << endl;
         exit(1);
     }
+}
+
+void ImpCODE::visit(GoProgram* p) {
+    p->package->accept(this);
+    for (auto imp : p->imports) {
+        imp->accept(this);
+    }
+    env.add_level();
+    p->body->accept(this);
+    env.remove_level();
+}
+
+void ImpCODE::visit(PackageDeclaration* p) {
+    // Nothing to do for code generation
+}
+
+void ImpCODE::visit(ImportDeclaration* imp) {
+    // Nothing to do for code generation
+}
+
+void ImpCODE::visit(StructDeclaration* s) {
+    StructType structType;
+    structType.name = s->name;
+    structType.fields = s->fields;
+    
+    // Calculate struct size and field offsets
+    structType.size = calculateStructSize(s->fields);
+    calculateFieldOffsets(structType);
+    
+    // Store struct type information
+    structTypes[s->name] = structType;
+}
+
+int ImpCODE::calculateStructSize(const vector<pair<string, string>>& fields) {
+    int size = 0;
+    for (const auto& field : fields) {
+        // Assuming all fields are 8 bytes (int or pointer to string)
+        size += 8;
+    }
+    return size;
+}
+
+void ImpCODE::calculateFieldOffsets(StructType& structType) {
+    int offset = 0;
+    for (const auto& field : structType.fields) {
+        structType.fieldOffsets[field.first] = offset;
+        // Assuming all fields are 8 bytes
+        offset += 8;
+    }
+}
+
+ImpValue ImpCODE::visit(StringExp* e) {
+    ImpValue v;
+    v.set_default_value(TINT);  // Using TINT as a placeholder, we should add TSTRING
+    
+    // Store the string literal and get its index
+    string_literals.push_back(e->value);
+    int str_index = string_count++;
+    
+    // Load address of string literal
+    cout << "  leaq str" << str_index << "(%rip), %rax" << endl;
+    
+    return v;
+}
+
+ImpValue ImpCODE::visit(StructFieldAccess* e) {
+    ImpValue v;
+    v.set_default_value(TINT);  // Assuming field is int for now
+    
+    // Load the struct base address
+    e->structure->accept(this);
+    
+    // Get struct type if it's an identifier
+    IdentifierExp* idExp = dynamic_cast<IdentifierExp*>(e->structure);
+    if (idExp) {
+        string structName = idExp->name;  // This is actually the variable name
+        
+        // Load the field's offset and add to base address
+        // This is a simplified version - in real code we'd need more type info
+        int fieldOffset = 0;  // Default offset
+        
+        // Access the field using the computed offset
+        cout << "  addq $" << fieldOffset << ", %rax" << endl;
+        cout << "  movq (%rax), %rax" << endl;  // Load value at field address
+    } else {
+        // For complex expressions, we would need additional handling
+        cout << "  # Warning: complex struct field access not fully implemented" << endl;
+    }
+    
+    return v;
 }

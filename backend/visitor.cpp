@@ -151,3 +151,46 @@ void PrintVisitor::visit(Body* stm){
     stm->slist->accept(this);
 }
 
+int PrintVisitor::visit(StringExp* exp) {
+    cout << "\"" << exp->value << "\"";
+    return 0;
+}
+
+void PrintVisitor::visit(StructDeclaration* stm) {
+    cout << "type " << stm->name << " struct {" << endl;
+    for (const auto& field : stm->fields) {
+        cout << "    " << field.first << " " << field.second << endl;
+    }
+    cout << "};
+}
+
+int PrintVisitor::visit(StructFieldAccess* exp) {
+    exp->structure->accept(this);
+    cout << "." << exp->field;
+    return 0;
+}
+
+void PrintVisitor::visit(ImportDeclaration* stm) {
+    cout << "import \"" << stm->path << "\"";
+}
+
+void PrintVisitor::visit(PackageDeclaration* stm) {
+    cout << "package " << stm->name;
+}
+
+void PrintVisitor::visit(GoProgram* prog) {
+    prog->package->accept(this);
+    cout << endl;
+    
+    for (auto imp : prog->imports) {
+        imp->accept(this);
+        cout << endl;
+    }
+    
+    prog->body->accept(this);
+}
+
+void PrintVisitor::imprimirGo(GoProgram* program) {
+    program->accept(this);
+}
+

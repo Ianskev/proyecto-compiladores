@@ -17,9 +17,20 @@ private:
     Exp* parseExpression();
     Exp* parseTerm();
     Exp* parseFactor();
+    Exp* parseUnaryExpr();
+    Exp* parsePrimaryExpr();
+    Exp* parseLogicalOrExpr();
+    Exp* parseLogicalAndExpr();
+    Exp* parseEqualityExpr();
+    Exp* parseRelExpr();
+    
 public:
     Parser(Scanner* scanner);
     Program* parseProgram();
+    GoProgram* parseGoProgram();
+    PackageDeclaration* parsePackage();
+    list<ImportDeclaration*> parseImports();
+    StructDeclaration* parseStructType();
     Stm* parseStatement();
     StatementList* parseStatementList();
     VarDec* parseVarDec();

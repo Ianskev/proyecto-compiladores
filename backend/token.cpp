@@ -47,6 +47,37 @@ std::ostream& operator << ( std::ostream& outs, const Token & tok )
         case Token::RETURN : outs << "TOKEN(RETURN)"; break;
         case Token::FUN : outs << "TOKEN(FUN)"; break;
         case Token::ENDFUN : outs << "TOKEN(ENDFUN)"; break;
+        
+        // Go-specific tokens
+        case Token::PACKAGE: outs << "TOKEN(PACKAGE)"; break;
+        case Token::IMPORT: outs << "TOKEN(IMPORT)"; break;
+        case Token::STRUCT: outs << "TOKEN(STRUCT)"; break;
+        case Token::FUNC: outs << "TOKEN(FUNC)"; break;
+        case Token::STRING_LIT: outs << "TOKEN(STRING_LIT)"; break;
+        case Token::COLON: outs << "TOKEN(COLON)"; break;
+        case Token::DOT: outs << "TOKEN(DOT)"; break;
+        case Token::LBRACE: outs << "TOKEN(LBRACE)"; break;
+        case Token::RBRACE: outs << "TOKEN(RBRACE)"; break;
+        case Token::LBRACKET: outs << "TOKEN(LBRACKET)"; break;
+        case Token::RBRACKET: outs << "TOKEN(RBRACKET)"; break;
+        case Token::INC: outs << "TOKEN(INC)"; break;
+        case Token::DEC: outs << "TOKEN(DEC)"; break;
+        case Token::GT: outs << "TOKEN(GT)"; break;
+        case Token::GE: outs << "TOKEN(GE)"; break;
+        case Token::NE: outs << "TOKEN(NE)"; break;
+        case Token::AND: outs << "TOKEN(AND)"; break;
+        case Token::OR: outs << "TOKEN(OR)"; break;
+        case Token::NOT: outs << "TOKEN(NOT)"; break;
+        case Token::MOD: outs << "TOKEN(MOD)"; break;
+        case Token::PLUSEQ: outs << "TOKEN(PLUSEQ)"; break;
+        case Token::MINUSEQ: outs << "TOKEN(MINUSEQ)"; break;
+        case Token::MULEQ: outs << "TOKEN(MULEQ)"; break;
+        case Token::DIVEQ: outs << "TOKEN(DIVEQ)"; break;
+        case Token::MODEQ: outs << "TOKEN(MODEQ)"; break;
+        case Token::SHORTASSIGN: outs << "TOKEN(SHORTASSIGN)"; break;
+        case Token::TYPE: outs << "TOKEN(TYPE)"; break;
+        case Token::ELSE_IF: outs << "TOKEN(ELSE_IF)"; break;
+        
         default: outs << "TOKEN(UNKNOWN)"; break;
     }
     return outs;

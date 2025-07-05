@@ -192,82 +192,232 @@ Stm* Parser::parseStatement() {
     return s;
 }
 
-Exp* Parser::parseCExp(){
-    Exp* left = parseExpression();
-    if (match(Token::LT) || match(Token::LE) || match(Token::EQ)){
+GoProgram* Parser::parseGoProgram() {
+    PackageDeclaration* package = parsePackage();
+    list<ImportDeclaration*> imports = parseImports();
+    Body* body = parseBody();
+    return new GoProgram(package, imports, body);
+}
+
+PackageDeclaration* Parser::parsePackage() {
+    if (!match(Token::PACKAGE)) {
+        cout << "Error: Expected 'package' declaration at the beginning of the file." << endl;
+        exit(1);
+    }
+    
+    if (!match(Token::ID)) {
+        cout << "Error: Expected package name after 'package'." << endl;
+        exit(1);
+    }
+    
+    string packageName = previous->text;
+    return new PackageDeclaration(packageName);
+}
+
+list<ImportDeclaration*> Parser::parseImports() {
+    list<ImportDeclaration*> imports;
+    
+    while (match(Token::IMPORT)) {
+        if (match(Token::STRING_LIT)) {
+            imports.push_back(new ImportDeclaration(previous->text));
+        } else if (match(Token::PI)) {
+            // Parse grouped imports
+            while (!check(Token::PD) && !isAtEnd()) {
+                if (match(Token::STRING_LIT)) {
+                    imports.push_back(new ImportDeclaration(previous->text));
+                } else {
+                    cout << "Error: Expected string literal in import declaration." << endl;
+                    exit(1);
+                }
+            }
+            
+            if (!match(Token::PD)) {
+                cout << "Error: Expected ')' after grouped imports." << endl;
+                exit(1);
+            }
+        } else {
+            cout << "Error: Expected string literal or '(' after 'import'." << endl;
+            exit(1);
+        }
+    }
+    
+    return imports;
+}
+
+StructDeclaration* Parser::parseStructType() {
+    if (!match(Token::TYPE)) {
+        cout << "Error: Expected 'type' keyword." << endl;
+        exit(1);
+    }
+    
+    if (!match(Token::ID)) {
+        cout << "Error: Expected struct name after 'type'." << endl;
+        exit(1);
+    }
+    
+    string structName = previous->text;
+    
+    if (!match(Token::STRUCT)) {
+        cout << "Error: Expected 'struct' keyword." << endl;
+        exit(1);
+    }
+    
+    if (!match(Token::LBRACE)) {
+        cout << "Error: Expected '{' after 'struct'." << endl;
+        exit(1);
+    }
+    
+    list<pair<string, string>> fields;
+    while (!check(Token::RBRACE) && !isAtEnd()) {
+        if (!match(Token::ID)) {
+            cout << "Error: Expected field name in struct declaration." << endl;
+            exit(1);
+        }
+        
+        string fieldName = previous->text;
+        
+        if (!match(Token::ID)) {
+            cout << "Error: Expected field type in struct declaration." << endl;
+            exit(1);
+        }
+        
+        string fieldType = previous->text;
+        fields.push_back(make_pair(fieldName, fieldType));
+    }
+    
+    if (!match(Token::RBRACE)) {
+        cout << "Error: Expected '}' at the end of struct declaration." << endl;
+        exit(1);
+    }
+    
+    return new StructDeclaration(structName, fields);
+}
+
+Exp* Parser::parseLogicalOrExpr() {
+    Exp* left = parseLogicalAndExpr();
+    
+    while (match(Token::OR)) {
+        Exp* right = parseLogicalAndExpr();
+        left = new BinaryExp(left, right, OR_OP);
+    }
+    
+    return left;
+}
+
+Exp* Parser::parseLogicalAndExpr() {
+    Exp* left = parseEqualityExpr();
+    
+    while (match(Token::AND)) {
+        Exp* right = parseEqualityExpr();
+        left = new BinaryExp(left, right, AND_OP);
+    }
+    
+    return left;
+}
+
+Exp* Parser::parseEqualityExpr() {
+    Exp* left = parseRelExpr();
+    
+    while (match(Token::EQ) || match(Token::NE)) {
         BinaryOp op;
-        if (previous->type == Token::LT){
-            op = LT_OP;
-        }
-        else if (previous->type == Token::LE){
-            op = LE_OP;
-        }
-        else if (previous->type == Token::EQ){
+        if (previous->type == Token::EQ) {
             op = EQ_OP;
+        } else {
+            op = NE_OP;
         }
+        
+        Exp* right = parseRelExpr();
+        left = new BinaryExp(left, right, op);
+    }
+    
+    return left;
+}
+
+Exp* Parser::parseRelExpr() {
+    Exp* left = parseExpression();
+    
+    while (match(Token::LT) || match(Token::LE) || match(Token::GT) || match(Token::GE)) {
+        BinaryOp op;
+        if (previous->type == Token::LT) {
+            op = LT_OP;
+        } else if (previous->type == Token::LE) {
+            op = LE_OP;
+        } else if (previous->type == Token::GT) {
+            op = GT_OP;
+        } else {
+            op = GE_OP;
+        }
+        
         Exp* right = parseExpression();
         left = new BinaryExp(left, right, op);
     }
+    
     return left;
 }
 
-Exp* Parser::parseExpression() {
-    Exp* left = parseTerm();
-    while (match(Token::PLUS) || match(Token::MINUS)) {
-        BinaryOp op;
-        if (previous->type == Token::PLUS){
-            op = PLUS_OP;
-        }
-        else if (previous->type == Token::MINUS){
-            op = MINUS_OP;
-        }
-        Exp* right = parseTerm();
-        left = new BinaryExp(left, right, op);
-    }
-    return left;
+Exp* Parser::parseCExp() {
+    return parseLogicalOrExpr();
 }
 
-Exp* Parser::parseTerm() {
-    Exp* left = parseFactor();
-    while (match(Token::MUL) || match(Token::DIV)) {
-        BinaryOp op;
-        if (previous->type == Token::MUL){
-            op = MUL_OP;
+Exp* Parser::parseUnaryExpr() {
+    if (match(Token::PLUS) || match(Token::MINUS) || match(Token::NOT)) {
+        Token::Type op = previous->type;
+        Exp* right = parseUnaryExpr();
+        
+        if (op == Token::NOT) {
+            // Implement NOT operation (can be done as a comparison with 0)
+            // This is simplified - in a full implementation you'd handle this differently
+            return new BinaryExp(new NumberExp(0), right, EQ_OP);
+        } else if (op == Token::MINUS) {
+            // Implement unary minus as 0 - expr
+            return new BinaryExp(new NumberExp(0), right, MINUS_OP);
+        } else {
+            // Unary plus is a no-op
+            return right;
         }
-        else if (previous->type == Token::DIV){
-            op = DIV_OP;
-        }
-        Exp* right = parseFactor();
-        left = new BinaryExp(left, right, op);
     }
-    return left;
+    
+    return parsePrimaryExpr();
 }
 
-Exp* Parser::parseFactor() {
-    Exp* e;
-    Exp* e1;
-    Exp* e2;
-    if (match(Token::TRUE)){
-        return new BoolExp(1);
-    }else if (match(Token::FALSE)){
-        return new BoolExp(0);
-    }
-    else if (match(Token::NUM)) {
-        return new NumberExp(stoi(previous->text));
-    }
-    else if (match(Token::ID)) {
-        string texto = previous->text;
-        return new IdentifierExp(previous->text);
-    }
-    else if (match(Token::PI)){
-        e = parseCExp();
-        if (!match(Token::PD)){
-            cout << "Falta paréntesis derecho" << endl;
-            exit(0);
+Exp* Parser::parsePrimaryExpr() {
+    Exp* expr;
+    
+    if (match(Token::ID)) {
+        string name = previous->text;
+        
+        // Check for struct field access
+        if (match(Token::DOT)) {
+            if (!match(Token::ID)) {
+                cout << "Error: Expected field name after '.'." << endl;
+                exit(1);
+            }
+            
+            string fieldName = previous->text;
+            expr = new StructFieldAccess(new IdentifierExp(name), fieldName);
+        } else {
+            expr = new IdentifierExp(name);
         }
-        return e;
+    } else if (match(Token::NUM)) {
+        expr = new NumberExp(stoi(previous->text));
+    } else if (match(Token::TRUE)) {
+        expr = new BoolExp(true);
+    } else if (match(Token::FALSE)) {
+        expr = new BoolExp(false);
+    } else if (match(Token::STRING_LIT)) {
+        expr = new StringExp(previous->text);
+    } else if (match(Token::PI)) {
+        expr = parseCExp();
+        
+        if (!match(Token::PD)) {
+            cout << "Error: Expected ')' after expression." << endl;
+            exit(1);
+        }
+    } else {
+        cout << "Error: Unexpected token in expression." << endl;
+        exit(1);
     }
-    cout << "Error: se esperaba un número o identificador." << endl;
-    exit(0);
+    
+    return expr;
 }
 

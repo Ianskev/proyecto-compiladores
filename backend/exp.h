@@ -7,7 +7,11 @@
 #include <list>
 #include "visitor.h"
 using namespace std;
-enum BinaryOp { PLUS_OP, MINUS_OP, MUL_OP, DIV_OP,LT_OP, LE_OP, EQ_OP };
+enum BinaryOp { 
+    PLUS_OP, MINUS_OP, MUL_OP, DIV_OP, LT_OP, LE_OP, EQ_OP, 
+    // New operators for Go
+    GT_OP, GE_OP, NE_OP, AND_OP, OR_OP, MOD_OP
+};
 
 class Body;
 class ImpValueVisitor;
@@ -56,6 +60,16 @@ public:
     int accept(Visitor* visitor);
     ImpValue accept(ImpValueVisitor* v);
     ~IdentifierExp();
+};
+
+// New class for string literals
+class StringExp : public Exp {
+public:
+    string value;
+    StringExp(const string& v);
+    int accept(Visitor* visitor);
+    ImpValue accept(ImpValueVisitor* v);
+    ~StringExp();
 };
 
 
@@ -107,54 +121,55 @@ public:
     ~WhileStatement();
 };
 
-
-class VarDec {
+// New statement types for Go language
+class StructDeclaration : public Stm {
 public:
-    string type;
-    list<string> vars;
-    VarDec(string type, list<string> vars);
+    string name;
+    list<pair<string, string>> fields; // field name, type name
+    StructDeclaration(const string& name, const list<pair<string, string>>& fields);
     int accept(Visitor* visitor);
     void accept(ImpValueVisitor* v);
-    ~VarDec();
+    ~StructDeclaration();
 };
 
-class VarDecList{
+class StructFieldAccess : public Exp {
 public:
-    list<VarDec*> vardecs;
-    VarDecList();
-    void add(VarDec* vardec);
+    Exp* structure;
+    string field;
+    StructFieldAccess(Exp* structure, const string& field);
+    int accept(Visitor* visitor);
+    ImpValue accept(ImpValueVisitor* v);
+    ~StructFieldAccess();
+};
+
+// For import statements
+class ImportDeclaration : public Stm {
+public:
+    string path;
+    ImportDeclaration(const string& path);
     int accept(Visitor* visitor);
     void accept(ImpValueVisitor* v);
-    ~VarDecList();
+    ~ImportDeclaration();
 };
 
-class StatementList {
+// For package declarations
+class PackageDeclaration : public Stm {
 public:
-    list<Stm*> stms;
-    StatementList();
-    void add(Stm* stm);
+    string name;
+    PackageDeclaration(const string& name);
     int accept(Visitor* visitor);
     void accept(ImpValueVisitor* v);
-    ~StatementList();
+    ~PackageDeclaration();
 };
 
-
-class Body{
+// Enhanced program class to include package and imports
+class GoProgram {
 public:
-    VarDecList* vardecs;
-    StatementList* slist;
-    Body(VarDecList* vardecs, StatementList* stms);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~Body();
-};
-
-
-class Program {
-public:
+    PackageDeclaration* package;
+    list<ImportDeclaration*> imports;
     Body* body;
-    Program(Body* body);
-    ~Program();
+    GoProgram(PackageDeclaration* package, const list<ImportDeclaration*>& imports, Body* body);
+    ~GoProgram();
     int accept(Visitor* v);
     void accept(ImpValueVisitor* v);
 };
