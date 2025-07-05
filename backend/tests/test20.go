@@ -23,11 +23,11 @@ func comparaAreas(r Rectangulo, t Triangulo) {
 	at := areaTri(t)
 
 	if ar > at {
-		fmt.Println("Área del rectángulo es", ar, "y es mayor que la del triángulo, que es", at)
+		fmt.Println("Area del rectangulo es", ar, "y es mayor que la del triangulo, que es", at)
 	} else if ar < at {
-		fmt.Println("Área del triángulo es", at, "y es mayor que la del rectángulo, que es", ar)
+		fmt.Println("Area del triangulo es", at, "y es mayor que la del rectangulo, que es", ar)
 	} else {
-		fmt.Println("Ambas áreas son iguales:", ar)
+		fmt.Println("Ambas areas son iguales:", ar)
 	}
 }
 

@@ -6,7 +6,45 @@
 class Token {
 public:
     enum Type {
-        PLUS, MINUS, MUL, DIV, NUM, ERR, PD, PI, END, ID, PRINT, ASSIGN, PC,LT, LE, EQ, IF, THEN, ELSE, ENDIF,WHILE,DO,ENDWHILE,COMA,IFEXP, VAR, FOR, ENDFOR, TRUE, FALSE, RETURN, FUN, ENDFUN
+        // Operadores aritméticos
+        PLUS, MINUS, MUL, DIV, MOD,
+        
+        // Operadores de comparación
+        LT, LE, GT, GE, EQ, NE,
+        
+        // Operadores lógicos
+        AND, OR, NOT,
+        
+        // Operadores de asignación
+        ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN,
+        SHORT_ASSIGN, // :=
+        
+        // Operadores de incremento/decremento
+        INC, DEC, // ++ --
+        
+        // Delimitadores
+        LPAREN, RPAREN, // ( )
+        LBRACE, RBRACE, // { }
+        LBRACKET, RBRACKET, // [ ]
+        SEMICOLON, COMMA, DOT, COLON, // ; , . :
+        
+        // Palabras reservadas - estructura del programa
+        PACKAGE, MAIN, IMPORT,
+        
+        // Palabras reservadas - declaraciones
+        VAR, TYPE, FUNC, STRUCT,
+        
+        // Palabras reservadas - control de flujo
+        IF, ELSE, FOR, RETURN,
+        
+        // Literales
+        NUM, STRING_LIT, TRUE, FALSE,
+        
+        // Identificadores
+        ID,
+        
+        // Especiales
+        END, ERR
     };
 
     Type type;
