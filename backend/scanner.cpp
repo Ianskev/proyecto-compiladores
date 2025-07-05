@@ -1,12 +1,29 @@
 #include <iostream>
 #include <cstring>
+#include <unordered_map>
 #include "token.h"
 #include "scanner.h"
 
 using namespace std;
 
-Scanner::Scanner(const char* s):input(s),first(0), current(0) { }
-
+Scanner::Scanner(const char* s):input(s),first(0), current(0) { 
+    // Mapa de palabras reservadas para Go
+    keywords["package"] = Token::PACKAGE;
+    keywords["main"] = Token::MAIN;
+    keywords["import"] = Token::IMPORT;
+    keywords["var"] = Token::VAR;
+    keywords["type"] = Token::TYPE;
+    keywords["func"] = Token::FUNC;
+    keywords["struct"] = Token::STRUCT;
+    keywords["if"] = Token::IF;
+    keywords["else"] = Token::ELSE;
+    keywords["for"] = Token::FOR;
+    keywords["return"] = Token::RETURN;
+    keywords["true"] = Token::TRUE;
+    keywords["false"] = Token::FALSE;
+    keywords["int"] = Token::ID; // tipos básicos como identificadores por simplicidad
+    keywords["string"] = Token::ID;
+}
 
 bool is_white_space(char c) {
     return c == ' ' || c == '\n' || c == '\r' || c == '\t';
@@ -14,216 +31,165 @@ bool is_white_space(char c) {
 
 Token* Scanner::nextToken() {
     Token* token;
-    while (current < input.length() &&  is_white_space(input[current]) ) current++;
-    if (current >= input.length()) return new Token(Token::END);
-    char c  = input[current];
+    
+    // Saltar espacios en blanco
+    while (current < input.length() && is_white_space(input[current])) 
+        current++;
+    
+    if (current >= input.length()) 
+        return new Token(Token::END);
+    
+    char c = input[current];
     first = current;
     
+    // Números
     if (isdigit(c)) {
         current++;
         while (current < input.length() && isdigit(input[current]))
             current++;
         token = new Token(Token::NUM, input, first, current - first);
     }
+    
+    // Literales de string
     else if (c == '"') {
-        // String literal handling
-        current++;
+        int start = current + 1; // Empezar después de la comilla inicial
+        current++; // saltar comilla inicial
         while (current < input.length() && input[current] != '"') {
             if (input[current] == '\\' && current + 1 < input.length()) {
-                // Skip escaped characters
-                current += 2;
+                current += 2; // saltar carácter escapado
             } else {
                 current++;
             }
         }
-        if (current >= input.length()) {
-            token = new Token(Token::ERR, "Unterminated string literal", 0, 22);
+        if (current < input.length()) {
+            // Crear token solo con el contenido, sin las comillas
+            token = new Token(Token::STRING_LIT, input, start, current - start);
+            current++; // saltar comilla final
         } else {
-            current++; // Skip closing quote
-            token = new Token(Token::STRING_LIT, input, first + 1, current - first - 2);
+            // String no cerrado - incluir todo para mostrar error
+            token = new Token(Token::STRING_LIT, input, first, current - first);
         }
     }
+    
+    // Identificadores y palabras reservadas
     else if (isalpha(c) || c == '_') {
         current++;
         while (current < input.length() && (isalnum(input[current]) || input[current] == '_'))
             current++;
         string word = input.substr(first, current - first);
         
-        // Go keywords
-        if (word == "package") {
-            token = new Token(Token::PACKAGE, word, 0, word.length());
-        } else if (word == "import") {
-            token = new Token(Token::IMPORT, word, 0, word.length());
-        } else if (word == "func") {
-            token = new Token(Token::FUNC, word, 0, word.length());
-        } else if (word == "var") {
-            token = new Token(Token::VAR, word, 0, word.length());
-        } else if (word == "type") {
-            token = new Token(Token::TYPE, word, 0, word.length());
-        } else if (word == "struct") {
-            token = new Token(Token::STRUCT, word, 0, word.length());
-        } else if (word == "return") {
-            token = new Token(Token::RETURN, word, 0, word.length());
-        } else if (word == "if") {
-            token = new Token(Token::IF, word, 0, word.length());
-        } else if (word == "else") {
-            token = new Token(Token::ELSE, word, 0, word.length());
-        } else if (word == "for") {
-            token = new Token(Token::FOR, word, 0, word.length());
-        } else if (word == "true") {
-            token = new Token(Token::TRUE, word, 0, word.length());
-        } else if (word == "false") {
-            token = new Token(Token::FALSE, word, 0, word.length());
-        } else if (word == "print") { // Keep for compatibility
-            token = new Token(Token::PRINT, word, 0, word.length());
+        // Verificar si es palabra reservada
+        auto it = keywords.find(word);
+        if (it != keywords.end()) {
+            token = new Token(it->second, word, 0, word.length());
         } else {
             token = new Token(Token::ID, word, 0, word.length());
         }
     }
-    else if (strchr("+-*/()=;,<>!.{}[]:%&|", c)) {
+    
+    // Operadores y símbolos de dos caracteres
+    else if (current + 1 < input.length()) {
+        string two_char = input.substr(current, 2);
+        
+        if (two_char == "++") {
+            token = new Token(Token::INC, input, first, 2);
+            current += 2;
+        } else if (two_char == "--") {
+            token = new Token(Token::DEC, input, first, 2);
+            current += 2;
+        } else if (two_char == "&&") {
+            token = new Token(Token::AND, input, first, 2);
+            current += 2;
+        } else if (two_char == "||") {
+            token = new Token(Token::OR, input, first, 2);
+            current += 2;
+        } else if (two_char == "==") {
+            token = new Token(Token::EQ, input, first, 2);
+            current += 2;
+        } else if (two_char == "!=") {
+            token = new Token(Token::NE, input, first, 2);
+            current += 2;
+        } else if (two_char == "<=") {
+            token = new Token(Token::LE, input, first, 2);
+            current += 2;
+        } else if (two_char == ">=") {
+            token = new Token(Token::GE, input, first, 2);
+            current += 2;
+        } else if (two_char == ":=") {
+            token = new Token(Token::SHORT_ASSIGN, input, first, 2);
+            current += 2;
+        } else if (two_char == "+=") {
+            token = new Token(Token::PLUS_ASSIGN, input, first, 2);
+            current += 2;
+        } else if (two_char == "-=") {
+            token = new Token(Token::MINUS_ASSIGN, input, first, 2);
+            current += 2;
+        } else if (two_char == "*=") {
+            token = new Token(Token::MUL_ASSIGN, input, first, 2);
+            current += 2;
+        } else if (two_char == "/=") {
+            token = new Token(Token::DIV_ASSIGN, input, first, 2);
+            current += 2;
+        } else if (two_char == "%=") {
+            token = new Token(Token::MOD_ASSIGN, input, first, 2);
+            current += 2;
+        } else {
+            // Operadores de un carácter
+            switch(c) {
+                case '+': token = new Token(Token::PLUS, c); break;
+                case '-': token = new Token(Token::MINUS, c); break;
+                case '*': token = new Token(Token::MUL, c); break;
+                case '/': token = new Token(Token::DIV, c); break;
+                case '%': token = new Token(Token::MOD, c); break;
+                case '<': token = new Token(Token::LT, c); break;
+                case '>': token = new Token(Token::GT, c); break;
+                case '=': token = new Token(Token::ASSIGN, c); break;
+                case '!': token = new Token(Token::NOT, c); break;
+                case '(': token = new Token(Token::LPAREN, c); break;
+                case ')': token = new Token(Token::RPAREN, c); break;
+                case '{': token = new Token(Token::LBRACE, c); break;
+                case '}': token = new Token(Token::RBRACE, c); break;
+                case '[': token = new Token(Token::LBRACKET, c); break;
+                case ']': token = new Token(Token::RBRACKET, c); break;
+                case ';': token = new Token(Token::SEMICOLON, c); break;
+                case ',': token = new Token(Token::COMMA, c); break;
+                case '.': token = new Token(Token::DOT, c); break;
+                case ':': token = new Token(Token::COLON, c); break;
+                default:
+                    token = new Token(Token::ERR, c);
+            }
+            current++;
+        }
+    }
+    
+    // Operadores de un carácter (cuando no hay segundo carácter)
+    else {
         switch(c) {
-            case '+':
-                if (current + 1 < input.length()) {
-                    if (input[current + 1] == '+') {
-                        token = new Token(Token::INC, "++", 0, 2);
-                        current++;
-                    } else if (input[current + 1] == '=') {
-                        token = new Token(Token::PLUSEQ, "+=", 0, 2);
-                        current++;
-                    } else {
-                        token = new Token(Token::PLUS, c);
-                    }
-                } else {
-                    token = new Token(Token::PLUS, c);
-                }
-                break;
-                
-            case '-':
-                if (current + 1 < input.length()) {
-                    if (input[current + 1] == '-') {
-                        token = new Token(Token::DEC, "--", 0, 2);
-                        current++;
-                    } else if (input[current + 1] == '=') {
-                        token = new Token(Token::MINUSEQ, "-=", 0, 2);
-                        current++;
-                    } else {
-                        token = new Token(Token::MINUS, c);
-                    }
-                } else {
-                    token = new Token(Token::MINUS, c);
-                }
-                break;
-                
-            case '*':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::MULEQ, "*=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::MUL, c);
-                }
-                break;
-                
-            case '/':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::DIVEQ, "/=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::DIV, c);
-                }
-                break;
-                
-            case '%':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::MODEQ, "%=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::MOD, c);
-                }
-                break;
-                
-            case ',': token = new Token(Token::COMA, c); break;
-            case '(': token = new Token(Token::PI, c); break;
-            case ')': token = new Token(Token::PD, c); break;
+            case '+': token = new Token(Token::PLUS, c); break;
+            case '-': token = new Token(Token::MINUS, c); break;
+            case '*': token = new Token(Token::MUL, c); break;
+            case '/': token = new Token(Token::DIV, c); break;
+            case '%': token = new Token(Token::MOD, c); break;
+            case '<': token = new Token(Token::LT, c); break;
+            case '>': token = new Token(Token::GT, c); break;
+            case '=': token = new Token(Token::ASSIGN, c); break;
+            case '!': token = new Token(Token::NOT, c); break;
+            case '(': token = new Token(Token::LPAREN, c); break;
+            case ')': token = new Token(Token::RPAREN, c); break;
             case '{': token = new Token(Token::LBRACE, c); break;
             case '}': token = new Token(Token::RBRACE, c); break;
             case '[': token = new Token(Token::LBRACKET, c); break;
             case ']': token = new Token(Token::RBRACKET, c); break;
+            case ';': token = new Token(Token::SEMICOLON, c); break;
+            case ',': token = new Token(Token::COMMA, c); break;
             case '.': token = new Token(Token::DOT, c); break;
-            case ':':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::SHORTASSIGN, ":=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::COLON, c);
-                }
-                break;
-                
-            case '=':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::EQ, "==", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::ASSIGN, c);
-                }
-                break;
-                
-            case '<':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::LE, "<=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::LT, c);
-                }
-                break;
-                
-            case '>':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::GE, ">=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::GT, c);
-                }
-                break;
-                
-            case '!':
-                if (current + 1 < input.length() && input[current + 1] == '=') {
-                    token = new Token(Token::NE, "!=", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::NOT, c);
-                }
-                break;
-                
-            case '&':
-                if (current + 1 < input.length() && input[current + 1] == '&') {
-                    token = new Token(Token::AND, "&&", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::ERR, c);
-                }
-                break;
-                
-            case '|':
-                if (current + 1 < input.length() && input[current + 1] == '|') {
-                    token = new Token(Token::OR, "||", 0, 2);
-                    current++;
-                } else {
-                    token = new Token(Token::ERR, c);
-                }
-                break;
-                
-            case ';': token = new Token(Token::PC, c); break;
-            
+            case ':': token = new Token(Token::COLON, c); break;
             default:
-                cout << "No debería llegar acá: " << c << endl;
                 token = new Token(Token::ERR, c);
         }
         current++;
     }
-    else {
-        token = new Token(Token::ERR, c);
-        current++;
-    }
+    
     return token;
 }
 
@@ -242,7 +208,7 @@ void test_scanner(Scanner* scanner) {
             cout << "Error en scanner - carácter inválido: " << current->text << endl;
             break;
         } else {
-            cout << *current << endl;
+            cout << *current << " [" << current->text << "]" << endl;
         }
         delete current;
     }

@@ -1,179 +1,306 @@
 #ifndef EXP_H
 #define EXP_H
-#include "imp_value.hh"
-#include "imp_type.hh"
+
 #include <string>
-#include <unordered_map>
 #include <list>
-#include "visitor.h"
+#include <vector>
+
 using namespace std;
+
+// Forward declarations
+class Visitor;
+
+//=== ENUMS ===
 enum BinaryOp { 
-    PLUS_OP, MINUS_OP, MUL_OP, DIV_OP, LT_OP, LE_OP, EQ_OP, 
-    // New operators for Go
-    GT_OP, GE_OP, NE_OP, AND_OP, OR_OP, MOD_OP
+    PLUS_OP, MINUS_OP, MUL_OP, DIV_OP, MOD_OP,
+    LT_OP, LE_OP, GT_OP, GE_OP, EQ_OP, NE_OP,
+    AND_OP, OR_OP
 };
 
-class Body;
-class ImpValueVisitor;
+enum UnaryOp { 
+    UPLUS_OP, UMINUS_OP, NOT_OP 
+};
+
+enum AssignOp {
+    ASSIGN_OP, PLUS_ASSIGN_OP, MINUS_ASSIGN_OP, 
+    MUL_ASSIGN_OP, DIV_ASSIGN_OP, MOD_ASSIGN_OP
+};
+
+//=== EXPRESIONES ===
 class Exp {
 public:
-    virtual int  accept(Visitor* visitor) = 0;
-    virtual ImpValue accept(ImpValueVisitor* v) = 0;
     virtual ~Exp() = 0;
-    static string binopToChar(BinaryOp op);
+    virtual void accept(Visitor* visitor) = 0;
+    static string binopToString(BinaryOp op);
+    static string unopToString(UnaryOp op);
 };
-
-
 
 class BinaryExp : public Exp {
 public:
-    Exp *left, *right;
+    Exp* left;
+    Exp* right;
     BinaryOp op;
     BinaryExp(Exp* l, Exp* r, BinaryOp op);
-    int accept(Visitor* visitor);
-    ImpValue accept(ImpValueVisitor* v);
+    void accept(Visitor* visitor) override;
     ~BinaryExp();
+};
+
+class UnaryExp : public Exp {
+public:
+    Exp* exp;
+    UnaryOp op;
+    UnaryExp(Exp* e, UnaryOp op);
+    void accept(Visitor* visitor) override;
+    ~UnaryExp();
 };
 
 class NumberExp : public Exp {
 public:
     int value;
     NumberExp(int v);
-    int accept(Visitor* visitor);
-    ImpValue accept(ImpValueVisitor* v);
+    void accept(Visitor* visitor) override;
     ~NumberExp();
+};
+
+class StringExp : public Exp {
+public:
+    string value;
+    StringExp(const string& v);
+    void accept(Visitor* visitor) override;
+    ~StringExp();
 };
 
 class BoolExp : public Exp {
 public:
-    int value;
+    bool value;
     BoolExp(bool v);
-    int accept(Visitor* visitor);
-    ImpValue accept(ImpValueVisitor* v);
+    void accept(Visitor* visitor) override;
     ~BoolExp();
 };
 
 class IdentifierExp : public Exp {
 public:
-    std::string name;
-    IdentifierExp(const std::string& n);
-    int accept(Visitor* visitor);
-    ImpValue accept(ImpValueVisitor* v);
+    string name;
+    IdentifierExp(const string& n);
+    void accept(Visitor* visitor) override;
     ~IdentifierExp();
 };
 
-// New class for string literals
-class StringExp : public Exp {
+class FieldAccessExp : public Exp {
 public:
-    string value;
-    StringExp(const string& v);
-    int accept(Visitor* visitor);
-    ImpValue accept(ImpValueVisitor* v);
-    ~StringExp();
+    Exp* object;
+    string field;
+    FieldAccessExp(Exp* obj, const string& f);
+    void accept(Visitor* visitor) override;
+    ~FieldAccessExp();
 };
 
-
-class Stm {
+class IndexExp : public Exp {
 public:
-    virtual int accept(Visitor* visitor) = 0;
-    virtual ~Stm() = 0;
-    virtual void accept(ImpValueVisitor* v) = 0;
+    Exp* array;
+    Exp* index;
+    IndexExp(Exp* arr, Exp* idx);
+    void accept(Visitor* visitor) override;
+    ~IndexExp();
 };
 
-
-class AssignStatement : public Stm {
+class FunctionCallExp : public Exp {
 public:
-    std::string id;
+    string funcName;
+    list<Exp*> args;
+    FunctionCallExp(const string& name, list<Exp*> arguments);
+    void accept(Visitor* visitor) override;
+    ~FunctionCallExp();
+};
+
+class StructLiteralExp : public Exp {
+public:
+    string typeName;
+    list<Exp*> values; // Para inicialización posicional
+    StructLiteralExp(const string& type, list<Exp*> vals);
+    void accept(Visitor* visitor) override;
+    ~StructLiteralExp();
+};
+
+class SliceExp : public Exp {
+public:
+    Exp* array;
+    Exp* start;  // puede ser nullptr
+    Exp* end;    // puede ser nullptr
+    SliceExp(Exp* arr, Exp* startIdx, Exp* endIdx);
+    void accept(Visitor* visitor) override;
+    ~SliceExp();
+};
+
+//=== TIPOS ===
+class Type {
+public:
+    virtual ~Type() = 0;
+    virtual void accept(Visitor* visitor) = 0;
+    virtual string toString() = 0;
+};
+
+class BasicType : public Type {
+public:
+    string typeName; // "int", "string"
+    BasicType(const string& name);
+    void accept(Visitor* visitor) override;
+    string toString() override;
+    ~BasicType();
+};
+
+class StructType : public Type {
+public:
+    list<pair<string, Type*>> fields; // (nombre, tipo)
+    StructType(list<pair<string, Type*>> fieldList);
+    void accept(Visitor* visitor) override;
+    string toString() override;
+    ~StructType();
+};
+
+class IdentifierType : public Type {
+public:
+    string name; // Para tipos definidos por el usuario
+    IdentifierType(const string& n);
+    void accept(Visitor* visitor) override;
+    string toString() override;
+    ~IdentifierType();
+};
+
+//=== SENTENCIAS ===
+class Stmt {
+public:
+    virtual ~Stmt() = 0;
+    virtual void accept(Visitor* visitor) = 0;
+};
+
+class ExprStmt : public Stmt {
+public:
+    Exp* expression;
+    ExprStmt(Exp* exp);
+    void accept(Visitor* visitor) override;
+    ~ExprStmt();
+};
+
+class AssignStmt : public Stmt {
+public:
+    Exp* lhs;
     Exp* rhs;
-    AssignStatement(std::string id, Exp* e);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~AssignStatement();
+    AssignOp op;
+    AssignStmt(Exp* left, Exp* right, AssignOp operation);
+    void accept(Visitor* visitor) override;
+    ~AssignStmt();
 };
 
-class PrintStatement : public Stm {
+class ShortVarDecl : public Stmt {
 public:
-    Exp* e;
-    PrintStatement(Exp* e);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~PrintStatement();
+    list<string> vars;
+    list<Exp*> values;
+    ShortVarDecl(list<string> variables, list<Exp*> vals);
+    void accept(Visitor* visitor) override;
+    ~ShortVarDecl();
 };
 
-
-class IfStatement : public Stm {
+class IncDecStmt : public Stmt {
 public:
-    Exp* condition;
-    Body* then;
-    Body* els;
-    IfStatement(Exp* condition, Body* then, Body* els);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~IfStatement();
+    string var;
+    bool isIncrement; // true para ++, false para --
+    IncDecStmt(const string& variable, bool inc);
+    void accept(Visitor* visitor) override;
+    ~IncDecStmt();
 };
-class WhileStatement : public Stm {
+
+class IfStmt : public Stmt {
 public:
     Exp* condition;
-    Body* b;
-    WhileStatement(Exp* condition, Body* b);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~WhileStatement();
+    class Block* thenBlock;
+    class Block* elseBlock; // puede ser nullptr
+    IfStmt(Exp* cond, Block* thenB, Block* elseB = nullptr);
+    void accept(Visitor* visitor) override;
+    ~IfStmt();
 };
 
-// New statement types for Go language
-class StructDeclaration : public Stm {
+class ForStmt : public Stmt {
+public:
+    Stmt* init;        // puede ser nullptr
+    Exp* condition;    // puede ser nullptr
+    Stmt* post;        // puede ser nullptr
+    class Block* body;
+    ForStmt(Stmt* initStmt, Exp* cond, Stmt* postStmt, Block* bodyBlock);
+    void accept(Visitor* visitor) override;
+    ~ForStmt();
+};
+
+class ReturnStmt : public Stmt {
+public:
+    Exp* expression; // puede ser nullptr
+    ReturnStmt(Exp* exp = nullptr);
+    void accept(Visitor* visitor) override;
+    ~ReturnStmt();
+};
+
+//=== DECLARACIONES ===
+class VarDecl : public Stmt {
+public:
+    list<string> names;
+    Type* type;
+    list<Exp*> values; // puede estar vacía
+    VarDecl(list<string> varNames, Type* varType, list<Exp*> initValues = list<Exp*>());
+    void accept(Visitor* visitor) override;
+    ~VarDecl();
+};
+
+class TypeDecl {
 public:
     string name;
-    list<pair<string, string>> fields; // field name, type name
-    StructDeclaration(const string& name, const list<pair<string, string>>& fields);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~StructDeclaration();
+    StructType* structType;
+    TypeDecl(const string& typeName, StructType* type);
+    void accept(Visitor* visitor);
+    ~TypeDecl();
 };
 
-class StructFieldAccess : public Exp {
+class FuncDecl {
 public:
-    Exp* structure;
-    string field;
-    StructFieldAccess(Exp* structure, const string& field);
-    int accept(Visitor* visitor);
-    ImpValue accept(ImpValueVisitor* v);
-    ~StructFieldAccess();
+    string name;
+    list<pair<string, Type*>> params; // (nombre, tipo)
+    Type* returnType; // puede ser nullptr para void
+    class Block* body;
+    FuncDecl(const string& funcName, list<pair<string, Type*>> parameters, 
+             Type* retType, Block* bodyBlock);
+    void accept(Visitor* visitor);
+    ~FuncDecl();
 };
 
-// For import statements
-class ImportDeclaration : public Stm {
+//=== BLOQUES Y ESTRUCTURAS ===
+class Block {
+public:
+    list<Stmt*> statements;
+    Block(list<Stmt*> stmts);
+    void accept(Visitor* visitor);
+    ~Block();
+};
+
+class ImportDecl {
 public:
     string path;
-    ImportDeclaration(const string& path);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~ImportDeclaration();
+    ImportDecl(const string& importPath);
+    void accept(Visitor* visitor);
+    ~ImportDecl();
 };
 
-// For package declarations
-class PackageDeclaration : public Stm {
+class Program {
 public:
-    string name;
-    PackageDeclaration(const string& name);
-    int accept(Visitor* visitor);
-    void accept(ImpValueVisitor* v);
-    ~PackageDeclaration();
+    string packageName;
+    list<ImportDecl*> imports;
+    list<VarDecl*> globalVars;
+    list<TypeDecl*> types;
+    list<FuncDecl*> functions;
+    
+    Program(const string& pkg, list<ImportDecl*> imps, 
+            list<VarDecl*> vars, list<TypeDecl*> typeDecls, 
+            list<FuncDecl*> funcs);
+    void accept(Visitor* visitor);
+    ~Program();
 };
-
-// Enhanced program class to include package and imports
-class GoProgram {
-public:
-    PackageDeclaration* package;
-    list<ImportDeclaration*> imports;
-    Body* body;
-    GoProgram(PackageDeclaration* package, const list<ImportDeclaration*>& imports, Body* body);
-    ~GoProgram();
-    int accept(Visitor* v);
-    void accept(ImpValueVisitor* v);
-};
-
-
 
 #endif // EXP_H

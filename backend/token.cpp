@@ -14,69 +14,80 @@ Token::Token(Type type, const string& source, int first, int last):type(type) {
 std::ostream& operator << ( std::ostream& outs, const Token & tok )
 {
     switch (tok.type) {
+        // Operadores aritméticos
         case Token::PLUS: outs << "TOKEN(PLUS)"; break;
         case Token::MINUS: outs << "TOKEN(MINUS)"; break;
         case Token::MUL: outs << "TOKEN(MUL)"; break;
         case Token::DIV: outs << "TOKEN(DIV)"; break;
-        case Token::NUM: outs << "TOKEN(NUM)"; break;
-        case Token::ERR: outs << "TOKEN(ERR)"; break;
-        case Token::PD: outs << "TOKEN(PD)"; break;
-        case Token::PI: outs << "TOKEN(PI)"; break;
-        case Token::END: outs << "TOKEN(END)"; break;
-        case Token::ID: outs << "TOKEN(ID)"; break;
-        case Token::PRINT: outs << "TOKEN(PRINT)"; break;
-        case Token::ASSIGN: outs << "TOKEN(ASSIGN)"; break;
-        case Token::PC: outs << "TOKEN(PC)"; break;
+        case Token::MOD: outs << "TOKEN(MOD)"; break;
+        
+        // Operadores de comparación
         case Token::LT: outs << "TOKEN(LT)"; break;
         case Token::LE: outs << "TOKEN(LE)"; break;
+        case Token::GT: outs << "TOKEN(GT)"; break;
+        case Token::GE: outs << "TOKEN(GE)"; break;
         case Token::EQ: outs << "TOKEN(EQ)"; break;
-        case Token::IF: outs << "TOKEN(IF)"; break;
-        case Token::THEN: outs << "TOKEN(THEN)"; break;
-        case Token::ELSE: outs << "TOKEN(ELSE)"; break;
-        case Token::ENDIF: outs << "TOKEN(ENDIF)"; break;
-        case Token::WHILE: outs << "TOKEN(WHILE)"; break;
-        case Token::COMA: outs << "TOKEN(COMA)"; break;
-        case Token::IFEXP: outs << "TOKEN(IFEXP)"; break;
-        case Token::DO: outs << "TOKEN(DO)"; break;
-        case Token::ENDWHILE: outs << "TOKEN(ENDWHILE)"; break;
-        case Token::VAR: outs << "TOKEN(VAR)"; break;
-        case Token::FOR : outs << "TOKEN(FOR)"; break;
-        case Token::ENDFOR : outs << "TOKEN(ENDFOR)"; break;
-        case Token::TRUE : outs << "TOKEN(TRUE)"; break;
-        case Token::FALSE : outs << "TOKEN(FALSE)"; break;
-        case Token::RETURN : outs << "TOKEN(RETURN)"; break;
-        case Token::FUN : outs << "TOKEN(FUN)"; break;
-        case Token::ENDFUN : outs << "TOKEN(ENDFUN)"; break;
+        case Token::NE: outs << "TOKEN(NE)"; break;
         
-        // Go-specific tokens
-        case Token::PACKAGE: outs << "TOKEN(PACKAGE)"; break;
-        case Token::IMPORT: outs << "TOKEN(IMPORT)"; break;
-        case Token::STRUCT: outs << "TOKEN(STRUCT)"; break;
-        case Token::FUNC: outs << "TOKEN(FUNC)"; break;
-        case Token::STRING_LIT: outs << "TOKEN(STRING_LIT)"; break;
-        case Token::COLON: outs << "TOKEN(COLON)"; break;
-        case Token::DOT: outs << "TOKEN(DOT)"; break;
+        // Operadores lógicos
+        case Token::AND: outs << "TOKEN(AND)"; break;
+        case Token::OR: outs << "TOKEN(OR)"; break;
+        case Token::NOT: outs << "TOKEN(NOT)"; break;
+        
+        // Operadores de asignación
+        case Token::ASSIGN: outs << "TOKEN(ASSIGN)"; break;
+        case Token::PLUS_ASSIGN: outs << "TOKEN(PLUS_ASSIGN)"; break;
+        case Token::MINUS_ASSIGN: outs << "TOKEN(MINUS_ASSIGN)"; break;
+        case Token::MUL_ASSIGN: outs << "TOKEN(MUL_ASSIGN)"; break;
+        case Token::DIV_ASSIGN: outs << "TOKEN(DIV_ASSIGN)"; break;
+        case Token::MOD_ASSIGN: outs << "TOKEN(MOD_ASSIGN)"; break;
+        case Token::SHORT_ASSIGN: outs << "TOKEN(SHORT_ASSIGN)"; break;
+        
+        // Operadores de incremento/decremento
+        case Token::INC: outs << "TOKEN(INC)"; break;
+        case Token::DEC: outs << "TOKEN(DEC)"; break;
+        
+        // Delimitadores
+        case Token::LPAREN: outs << "TOKEN(LPAREN)"; break;
+        case Token::RPAREN: outs << "TOKEN(RPAREN)"; break;
         case Token::LBRACE: outs << "TOKEN(LBRACE)"; break;
         case Token::RBRACE: outs << "TOKEN(RBRACE)"; break;
         case Token::LBRACKET: outs << "TOKEN(LBRACKET)"; break;
         case Token::RBRACKET: outs << "TOKEN(RBRACKET)"; break;
-        case Token::INC: outs << "TOKEN(INC)"; break;
-        case Token::DEC: outs << "TOKEN(DEC)"; break;
-        case Token::GT: outs << "TOKEN(GT)"; break;
-        case Token::GE: outs << "TOKEN(GE)"; break;
-        case Token::NE: outs << "TOKEN(NE)"; break;
-        case Token::AND: outs << "TOKEN(AND)"; break;
-        case Token::OR: outs << "TOKEN(OR)"; break;
-        case Token::NOT: outs << "TOKEN(NOT)"; break;
-        case Token::MOD: outs << "TOKEN(MOD)"; break;
-        case Token::PLUSEQ: outs << "TOKEN(PLUSEQ)"; break;
-        case Token::MINUSEQ: outs << "TOKEN(MINUSEQ)"; break;
-        case Token::MULEQ: outs << "TOKEN(MULEQ)"; break;
-        case Token::DIVEQ: outs << "TOKEN(DIVEQ)"; break;
-        case Token::MODEQ: outs << "TOKEN(MODEQ)"; break;
-        case Token::SHORTASSIGN: outs << "TOKEN(SHORTASSIGN)"; break;
+        case Token::SEMICOLON: outs << "TOKEN(SEMICOLON)"; break;
+        case Token::COMMA: outs << "TOKEN(COMMA)"; break;
+        case Token::DOT: outs << "TOKEN(DOT)"; break;
+        case Token::COLON: outs << "TOKEN(COLON)"; break;
+        
+        // Palabras reservadas - estructura del programa
+        case Token::PACKAGE: outs << "TOKEN(PACKAGE)"; break;
+        case Token::MAIN: outs << "TOKEN(MAIN)"; break;
+        case Token::IMPORT: outs << "TOKEN(IMPORT)"; break;
+        
+        // Palabras reservadas - declaraciones
+        case Token::VAR: outs << "TOKEN(VAR)"; break;
         case Token::TYPE: outs << "TOKEN(TYPE)"; break;
-        case Token::ELSE_IF: outs << "TOKEN(ELSE_IF)"; break;
+        case Token::FUNC: outs << "TOKEN(FUNC)"; break;
+        case Token::STRUCT: outs << "TOKEN(STRUCT)"; break;
+        
+        // Palabras reservadas - control de flujo
+        case Token::IF: outs << "TOKEN(IF)"; break;
+        case Token::ELSE: outs << "TOKEN(ELSE)"; break;
+        case Token::FOR: outs << "TOKEN(FOR)"; break;
+        case Token::RETURN: outs << "TOKEN(RETURN)"; break;
+        
+        // Literales
+        case Token::NUM: outs << "TOKEN(NUM)"; break;
+        case Token::STRING_LIT: outs << "TOKEN(STRING_LIT)"; break;
+        case Token::TRUE: outs << "TOKEN(TRUE)"; break;
+        case Token::FALSE: outs << "TOKEN(FALSE)"; break;
+        
+        // Identificadores
+        case Token::ID: outs << "TOKEN(ID)"; break;
+        
+        // Especiales
+        case Token::END: outs << "TOKEN(END)"; break;
+        case Token::ERR: outs << "TOKEN(ERR)"; break;
         
         default: outs << "TOKEN(UNKNOWN)"; break;
     }

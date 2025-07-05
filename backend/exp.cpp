@@ -1,100 +1,204 @@
 #include <iostream>
 #include "exp.h"
+#include "visitor.h"
+
 using namespace std;
-BinaryExp::BinaryExp(Exp* l, Exp* r, BinaryOp op):left(l),right(r),op(op) {}
-NumberExp::NumberExp(int v):value(v) {}
-BoolExp::BoolExp(bool v):value(v) {}
-IdentifierExp::IdentifierExp(const string& n):name(n) {}
-StringExp::StringExp(const string& v):value(v) {}
 
+// Implementación de destructores abstractos
 Exp::~Exp() {}
+Type::~Type() {}
+Stmt::~Stmt() {}
+
+// Métodos estáticos de utilidad
+string Exp::binopToString(BinaryOp op) {
+    switch(op) {
+        case PLUS_OP: return "+";
+        case MINUS_OP: return "-";
+        case MUL_OP: return "*";
+        case DIV_OP: return "/";
+        case MOD_OP: return "%";
+        case LT_OP: return "<";
+        case LE_OP: return "<=";
+        case GT_OP: return ">";
+        case GE_OP: return ">=";
+        case EQ_OP: return "==";
+        case NE_OP: return "!=";
+        case AND_OP: return "&&";
+        case OR_OP: return "||";
+        default: return "?";
+    }
+}
+
+string Exp::unopToString(UnaryOp op) {
+    switch(op) {
+        case UPLUS_OP: return "+";
+        case UMINUS_OP: return "-";
+        case NOT_OP: return "!";
+        default: return "?";
+    }
+}
+
+//=== EXPRESIONES ===
+BinaryExp::BinaryExp(Exp* l, Exp* r, BinaryOp operation) : left(l), right(r), op(operation) {}
 BinaryExp::~BinaryExp() { delete left; delete right; }
-NumberExp::~NumberExp() { }
-BoolExp::~BoolExp() { }
-IdentifierExp::~IdentifierExp() { }
+void BinaryExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+UnaryExp::UnaryExp(Exp* e, UnaryOp operation) : exp(e), op(operation) {}
+UnaryExp::~UnaryExp() { delete exp; }
+void UnaryExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+NumberExp::NumberExp(int v) : value(v) {}
+NumberExp::~NumberExp() {}
+void NumberExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+StringExp::StringExp(const string& v) : value(v) {}
 StringExp::~StringExp() {}
+void StringExp::accept(Visitor* visitor) { visitor->visit(this); }
 
-AssignStatement::AssignStatement(string id, Exp* e): id(id), rhs(e) {}
-AssignStatement::~AssignStatement() {
-    delete rhs;
+BoolExp::BoolExp(bool v) : value(v) {}
+BoolExp::~BoolExp() {}
+void BoolExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+IdentifierExp::IdentifierExp(const string& n) : name(n) {}
+IdentifierExp::~IdentifierExp() {}
+void IdentifierExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+FieldAccessExp::FieldAccessExp(Exp* obj, const string& f) : object(obj), field(f) {}
+FieldAccessExp::~FieldAccessExp() { delete object; }
+void FieldAccessExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+IndexExp::IndexExp(Exp* arr, Exp* idx) : array(arr), index(idx) {}
+IndexExp::~IndexExp() { delete array; delete index; }
+void IndexExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+FunctionCallExp::FunctionCallExp(const string& name, list<Exp*> arguments) 
+    : funcName(name), args(arguments) {}
+FunctionCallExp::~FunctionCallExp() {
+    for (auto arg : args) delete arg;
 }
-PrintStatement::PrintStatement(Exp* e): e(e) {}
-PrintStatement::~PrintStatement() {
-    delete e;
+void FunctionCallExp::accept(Visitor* visitor) { visitor->visit(this); }
+
+StructLiteralExp::StructLiteralExp(const string& type, list<Exp*> vals) 
+    : typeName(type), values(vals) {}
+StructLiteralExp::~StructLiteralExp() {
+    for (auto val : values) delete val;
 }
+void StructLiteralExp::accept(Visitor* visitor) { visitor->visit(this); }
 
-IfStatement::IfStatement(Exp* c, Body* t, Body* e): condition(c), then(t), els(e) {}
-IfStatement::~IfStatement() {
-    delete condition;
-    delete then;
-    delete els;
+//=== TIPOS ===
+BasicType::BasicType(const string& name) : typeName(name) {}
+BasicType::~BasicType() {}
+void BasicType::accept(Visitor* visitor) { visitor->visit(this); }
+string BasicType::toString() { return typeName; }
+
+StructType::StructType(list<pair<string, Type*>> fieldList) : fields(fieldList) {}
+StructType::~StructType() {
+    for (auto& field : fields) delete field.second;
 }
-WhileStatement::WhileStatement(Exp* c, Body* t): condition(c), b(t) {}
-WhileStatement::~WhileStatement() {
-    delete condition;
-    delete b;
+void StructType::accept(Visitor* visitor) { visitor->visit(this); }
+string StructType::toString() { return "struct"; }
+
+IdentifierType::IdentifierType(const string& n) : name(n) {}
+IdentifierType::~IdentifierType() {}
+void IdentifierType::accept(Visitor* visitor) { visitor->visit(this); }
+string IdentifierType::toString() { return name; }
+
+//=== SENTENCIAS ===
+ExprStmt::ExprStmt(Exp* exp) : expression(exp) {}
+ExprStmt::~ExprStmt() { delete expression; }
+void ExprStmt::accept(Visitor* visitor) { visitor->visit(this); }
+
+AssignStmt::AssignStmt(Exp* left, Exp* right, AssignOp operation) 
+    : lhs(left), rhs(right), op(operation) {}
+AssignStmt::~AssignStmt() { delete lhs; delete rhs; }
+void AssignStmt::accept(Visitor* visitor) { visitor->visit(this); }
+
+ShortVarDecl::ShortVarDecl(list<string> variables, list<Exp*> vals) 
+    : vars(variables), values(vals) {}
+ShortVarDecl::~ShortVarDecl() {
+    for (auto val : values) delete val;
 }
+void ShortVarDecl::accept(Visitor* visitor) { visitor->visit(this); }
 
+IncDecStmt::IncDecStmt(const string& variable, bool inc) : var(variable), isIncrement(inc) {}
+IncDecStmt::~IncDecStmt() {}
+void IncDecStmt::accept(Visitor* visitor) { visitor->visit(this); }
 
-
-VarDec::VarDec(string type, list<string> vars): type(type), vars(vars) {}
-VarDec::~VarDec() {}
-
-VarDecList::VarDecList(): vardecs() {}
-void VarDecList::add(VarDec* v) {
-    vardecs.push_back(v);
+IfStmt::IfStmt(Exp* cond, Block* thenB, Block* elseB) 
+    : condition(cond), thenBlock(thenB), elseBlock(elseB) {}
+IfStmt::~IfStmt() { 
+    delete condition; 
+    delete thenBlock; 
+    if (elseBlock) delete elseBlock; 
 }
-VarDecList::~VarDecList() {
-    for (auto v: vardecs) {
-        delete v;
-    }
-}
+void IfStmt::accept(Visitor* visitor) { visitor->visit(this); }
 
-StatementList::StatementList(): stms() {}
-void StatementList::add(Stm* s) {
-    stms.push_back(s);
-}
-
-StatementList::~StatementList() {
-    for (auto s: stms) {
-        delete s;
-    }
-}
-
-Body::Body(VarDecList* v, StatementList* s): vardecs(v), slist(s) {}
-Body::~Body() {
-    delete vardecs;
-    delete slist;
-}
-
-
-
-
-
-
-Program::Program(Body* b): body(b) {}
-
-Program::~Program() {
+ForStmt::ForStmt(Stmt* initStmt, Exp* cond, Stmt* postStmt, Block* bodyBlock)
+    : init(initStmt), condition(cond), post(postStmt), body(bodyBlock) {}
+ForStmt::~ForStmt() {
+    if (init) delete init;
+    if (condition) delete condition;
+    if (post) delete post;
     delete body;
 }
-Stm::~Stm() {}
-string Exp::binopToChar(BinaryOp op) {
-    string c;
-    switch(op) {
-        case PLUS_OP: c = "+"; break;
-        case MINUS_OP: c = "-"; break;
-        case MUL_OP: c = "*"; break;
-        case DIV_OP: c = "/"; break;
-        case LT_OP: c = "<"; break;
-        case LE_OP: c = "<="; break;
-        case EQ_OP: c = "=="; break;
-        case GT_OP: c = ">"; break;
-        case GE_OP: c = ">="; break;
-        case NE_OP: c = "!="; break;
-        case AND_OP: c = "&&"; break;
-        case OR_OP: c = "||"; break;
-        case MOD_OP: c = "%"; break;
-        default: c = "$";
-    }
-    return c;
+void ForStmt::accept(Visitor* visitor) { visitor->visit(this); }
+
+ReturnStmt::ReturnStmt(Exp* exp) : expression(exp) {}
+ReturnStmt::~ReturnStmt() { if (expression) delete expression; }
+void ReturnStmt::accept(Visitor* visitor) { visitor->visit(this); }
+
+//=== DECLARACIONES ===
+VarDecl::VarDecl(list<string> varNames, Type* varType, list<Exp*> initValues)
+    : names(varNames), type(varType), values(initValues) {}
+VarDecl::~VarDecl() {
+    delete type;
+    for (auto val : values) delete val;
 }
+void VarDecl::accept(Visitor* visitor) { visitor->visit(this); }
+
+TypeDecl::TypeDecl(const string& typeName, StructType* type) 
+    : name(typeName), structType(type) {}
+TypeDecl::~TypeDecl() { delete structType; }
+void TypeDecl::accept(Visitor* visitor) { visitor->visit(this); }
+
+FuncDecl::FuncDecl(const string& funcName, list<pair<string, Type*>> parameters, 
+                   Type* retType, Block* bodyBlock)
+    : name(funcName), params(parameters), returnType(retType), body(bodyBlock) {}
+FuncDecl::~FuncDecl() {
+    for (auto& param : params) delete param.second;
+    if (returnType) delete returnType;
+    delete body;
+}
+void FuncDecl::accept(Visitor* visitor) { visitor->visit(this); }
+
+//=== BLOQUES Y ESTRUCTURAS ===
+Block::Block(list<Stmt*> stmts) : statements(stmts) {}
+Block::~Block() {
+    for (auto stmt : statements) delete stmt;
+}
+void Block::accept(Visitor* visitor) { visitor->visit(this); }
+
+ImportDecl::ImportDecl(const string& importPath) : path(importPath) {}
+ImportDecl::~ImportDecl() {}
+void ImportDecl::accept(Visitor* visitor) { visitor->visit(this); }
+
+Program::Program(const string& pkg, list<ImportDecl*> imps, 
+                 list<VarDecl*> vars, list<TypeDecl*> typeDecls, 
+                 list<FuncDecl*> funcs)
+    : packageName(pkg), imports(imps), globalVars(vars), types(typeDecls), functions(funcs) {}
+Program::~Program() {
+    for (auto imp : imports) delete imp;
+    for (auto var : globalVars) delete var;
+    for (auto type : types) delete type;
+    for (auto func : functions) delete func;
+}
+void Program::accept(Visitor* visitor) { visitor->visit(this); }
+
+SliceExp::SliceExp(Exp* arr, Exp* startIdx, Exp* endIdx) 
+    : array(arr), start(startIdx), end(endIdx) {}
+SliceExp::~SliceExp() {
+    delete array;
+    if (start) delete start;
+    if (end) delete end;
+}
+void SliceExp::accept(Visitor* visitor) { visitor->visit(this); }

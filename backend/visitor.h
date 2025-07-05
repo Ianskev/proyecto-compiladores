@@ -1,82 +1,122 @@
-#ifndef VISITOR_H
-#define VISITOR_H
-#include "exp.h"
-#include <list>
+#ifndef VISITOR_GO_H
+#define VISITOR_GO_H
 
-// Forward declarations for existing node types
+// Forward declarations
 class BinaryExp;
+class UnaryExp;
 class NumberExp;
+class StringExp;
 class BoolExp;
 class IdentifierExp;
-class AssignStatement;
-class PrintStatement;
-class IfStatement;
-class WhileStatement;
-class VarDec;
-class VarDecList;
-class StatementList;
-class Body;
-class Program;
+class FieldAccessExp;
+class IndexExp;
+class SliceExp;
+class FunctionCallExp;
+class StructLiteralExp;
 
-// Forward declarations for new Go-specific node types
-class StringExp;
-class StructDeclaration;
-class StructFieldAccess;
-class ImportDeclaration;
-class PackageDeclaration;
-class GoProgram;
+class BasicType;
+class StructType;
+class IdentifierType;
+
+class ExprStmt;
+class AssignStmt;
+class ShortVarDecl;
+class IncDecStmt;
+class IfStmt;
+class ForStmt;
+class ReturnStmt;
+class VarDecl;
+
+class TypeDecl;
+class FuncDecl;
+class Block;
+class ImportDecl;
+class Program;
 
 class Visitor {
 public:
-    // Existing visit methods
-    virtual int visit(BinaryExp* exp) = 0;
-    virtual int visit(NumberExp* exp) = 0;
-    virtual int visit(BoolExp* exp) = 0;
-    virtual int visit(IdentifierExp* exp) = 0;
-    virtual void visit(AssignStatement* stm) = 0;
-    virtual void visit(PrintStatement* stm) = 0;
-    virtual void visit(IfStatement* stm) = 0;
-    virtual void visit(WhileStatement* stm) = 0;
-    virtual void visit(VarDec* stm) = 0;
-    virtual void visit(VarDecList* stm) = 0;
-    virtual void visit(StatementList* stm) = 0;
-    virtual void visit(Body* b) = 0;
+    // Expresiones
+    virtual void visit(BinaryExp* exp) = 0;
+    virtual void visit(UnaryExp* exp) = 0;
+    virtual void visit(NumberExp* exp) = 0;
+    virtual void visit(StringExp* exp) = 0;
+    virtual void visit(BoolExp* exp) = 0;
+    virtual void visit(IdentifierExp* exp) = 0;
+    virtual void visit(FieldAccessExp* exp) = 0;
+    virtual void visit(IndexExp* exp) = 0;
+    virtual void visit(SliceExp* exp) = 0;
+    virtual void visit(FunctionCallExp* exp) = 0;
+    virtual void visit(StructLiteralExp* exp) = 0;
     
-    // New visit methods for Go-specific node types
-    virtual int visit(StringExp* exp) = 0;
-    virtual void visit(StructDeclaration* stm) = 0;
-    virtual int visit(StructFieldAccess* exp) = 0;
-    virtual void visit(ImportDeclaration* stm) = 0;
-    virtual void visit(PackageDeclaration* stm) = 0;
-    virtual void visit(GoProgram* prog) = 0;
+    // Tipos
+    virtual void visit(BasicType* type) = 0;
+    virtual void visit(StructType* type) = 0;
+    virtual void visit(IdentifierType* type) = 0;
+    
+    // Sentencias
+    virtual void visit(ExprStmt* stmt) = 0;
+    virtual void visit(AssignStmt* stmt) = 0;
+    virtual void visit(ShortVarDecl* stmt) = 0;
+    virtual void visit(IncDecStmt* stmt) = 0;
+    virtual void visit(IfStmt* stmt) = 0;
+    virtual void visit(ForStmt* stmt) = 0;
+    virtual void visit(ReturnStmt* stmt) = 0;
+    virtual void visit(VarDecl* stmt) = 0;
+    
+    // Declaraciones
+    virtual void visit(TypeDecl* decl) = 0;
+    virtual void visit(FuncDecl* decl) = 0;
+    virtual void visit(Block* block) = 0;
+    virtual void visit(ImportDecl* decl) = 0;
+    virtual void visit(Program* program) = 0;
 };
 
 class PrintVisitor : public Visitor {
+private:
+    int indentLevel;
+    void printIndent();
+    void increaseIndent();
+    void decreaseIndent();
+    
 public:
-    void imprimir(Program* program);
-    void imprimirGo(GoProgram* program);
+    PrintVisitor();
     
-    // Existing implementation methods
-    int visit(BinaryExp* exp) override;
-    int visit(NumberExp* exp) override;
-    int visit(BoolExp* exp) override;
-    int visit(IdentifierExp* exp) override;
-    void visit(AssignStatement* stm) override;
-    void visit(PrintStatement* stm) override;
-    void visit(IfStatement* stm) override;
-    void visit(WhileStatement* stm) override;
-    void visit(VarDec* stm) override;
-    void visit(VarDecList* stm) override;
-    void visit(StatementList* stm) override;
-    void visit(Body* b) override;
+    // Expresiones
+    void visit(BinaryExp* exp) override;
+    void visit(UnaryExp* exp) override;
+    void visit(NumberExp* exp) override;
+    void visit(StringExp* exp) override;
+    void visit(BoolExp* exp) override;
+    void visit(IdentifierExp* exp) override;
+    void visit(FieldAccessExp* exp) override;
+    void visit(IndexExp* exp) override;
+    void visit(SliceExp* exp) override;
+    void visit(FunctionCallExp* exp) override;
+    void visit(StructLiteralExp* exp) override;
     
-    // New implementation methods for Go-specific node types
-    int visit(StringExp* exp) override;
-    void visit(StructDeclaration* stm) override;
-    int visit(StructFieldAccess* exp) override;
-    void visit(ImportDeclaration* stm) override;
-    void visit(PackageDeclaration* stm) override;
-    void visit(GoProgram* prog) override;
+    // Tipos
+    void visit(BasicType* type) override;
+    void visit(StructType* type) override;
+    void visit(IdentifierType* type) override;
+    
+    // Sentencias
+    void visit(ExprStmt* stmt) override;
+    void visit(AssignStmt* stmt) override;
+    void visit(ShortVarDecl* stmt) override;
+    void visit(IncDecStmt* stmt) override;
+    void visit(IfStmt* stmt) override;
+    void visit(ForStmt* stmt) override;
+    void visit(ReturnStmt* stmt) override;
+    void visit(VarDecl* stmt) override;
+    
+    // Declaraciones
+    void visit(TypeDecl* decl) override;
+    void visit(FuncDecl* decl) override;
+    void visit(Block* block) override;
+    void visit(ImportDecl* decl) override;
+    void visit(Program* program) override;
+    
+    void print(Program* program);
 };
 
-#endif
+#endif // VISITOR_GO_H

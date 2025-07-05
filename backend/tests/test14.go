@@ -10,5 +10,5 @@ func mayor(a, b int) int {
 }
 
 func main() {
-	fmt.Println(mayor(4, 7)) // 7
+	fmt.Println(mayor(4, 7))
 }
