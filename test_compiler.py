@@ -9,7 +9,7 @@ class CompilerTester:
     def __init__(self):
         self.backend_dir = Path("backend")
         self.tests_dir = self.backend_dir / "tests"
-        self.executable = self.backend_dir / "parser_test.exe"
+        self.executable = self.backend_dir / "main.exe"
         self.successful_tests = []
         self.failed_tests = []
         
@@ -19,7 +19,7 @@ class CompilerTester:
         try:
             os.chdir(self.backend_dir)
             result = subprocess.run([
-                "g++", "-o", "parser_test.exe", 
+                "g++", "-o", "main.exe", 
                 "main.cpp", "scanner.cpp", "token.cpp", 
                 "parser.cpp", "exp.cpp", "visitor.cpp", 
                 "gencode.cpp", "imp_value.cpp",
