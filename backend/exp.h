@@ -122,6 +122,16 @@ public:
     ~StructLiteralExp();
 };
 
+class SliceExp : public Exp {
+public:
+    Exp* array;
+    Exp* start;  // puede ser nullptr
+    Exp* end;    // puede ser nullptr
+    SliceExp(Exp* arr, Exp* startIdx, Exp* endIdx);
+    void accept(Visitor* visitor) override;
+    ~SliceExp();
+};
+
 //=== TIPOS ===
 class Type {
 public:

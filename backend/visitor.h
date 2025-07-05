@@ -10,6 +10,7 @@ class BoolExp;
 class IdentifierExp;
 class FieldAccessExp;
 class IndexExp;
+class SliceExp;
 class FunctionCallExp;
 class StructLiteralExp;
 
@@ -43,6 +44,7 @@ public:
     virtual void visit(IdentifierExp* exp) = 0;
     virtual void visit(FieldAccessExp* exp) = 0;
     virtual void visit(IndexExp* exp) = 0;
+    virtual void visit(SliceExp* exp) = 0;
     virtual void visit(FunctionCallExp* exp) = 0;
     virtual void visit(StructLiteralExp* exp) = 0;
     
@@ -88,6 +90,7 @@ public:
     void visit(IdentifierExp* exp) override;
     void visit(FieldAccessExp* exp) override;
     void visit(IndexExp* exp) override;
+    void visit(SliceExp* exp) override;
     void visit(FunctionCallExp* exp) override;
     void visit(StructLiteralExp* exp) override;
     

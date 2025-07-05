@@ -272,26 +272,34 @@ list<pair<string, Type*>> GoParser::parseParamList() {
     list<pair<string, Type*>> params;
     
     if (!check(Token::RPAREN)) {
-        // Parse first parameter
-        if (!check(Token::ID)) {
-            error("Expected parameter name");
-        }
-        string paramName = current->text;
-        advance();
-        
-        Type* paramType = parseType();
-        params.push_back(make_pair(paramName, paramType));
-        
-        // Parse additional parameters
-        while (match(Token::COMMA)) {
+        while (true) {
+            // Parse parameter names (can be multiple separated by comma)
+            list<string> paramNames;
+            
             if (!check(Token::ID)) {
                 error("Expected parameter name");
             }
-            paramName = current->text;
+            paramNames.push_back(current->text);
             advance();
             
-            paramType = parseType();
-            params.push_back(make_pair(paramName, paramType));
+            // Collect additional names that share the same type
+            while (match(Token::COMMA) && check(Token::ID)) {
+                paramNames.push_back(current->text);
+                advance();
+            }
+            
+            // Now we should have the type
+            Type* paramType = parseType();
+            
+            // Add all parameters with this type
+            for (const string& name : paramNames) {
+                params.push_back(make_pair(name, paramType));
+            }
+            
+            // Check if there are more parameter groups
+            if (!match(Token::COMMA)) {
+                break;
+            }
         }
     }
     
@@ -435,7 +443,16 @@ IfStmt* GoParser::parseIfStmt() {
     
     Block* elseBlock = nullptr;
     if (match(Token::ELSE)) {
-        elseBlock = parseBlock();
+        if (check(Token::IF)) {
+            // else if - parse another if statement and wrap it in a block
+            IfStmt* elseIfStmt = parseIfStmt();
+            list<Stmt*> stmts;
+            stmts.push_back(elseIfStmt);
+            elseBlock = new Block(stmts);
+        } else {
+            // else block
+            elseBlock = parseBlock();
+        }
     }
     
     return new IfStmt(condition, thenBlock, elseBlock);
@@ -677,27 +694,40 @@ Exp* GoParser::parsePrimaryExpr() {
     } else {
         error("Expected expression");
         return nullptr;
-    }
-    
-    // Handle postfix operations: field access and indexing
-    while (true) {
-        if (match(Token::DOT)) {
-            if (!check(Token::ID)) {
-                error("Expected field name after '.'");
+    }        // Handle postfix operations: field access and indexing
+        while (true) {
+            if (match(Token::DOT)) {
+                if (!check(Token::ID)) {
+                    error("Expected field name after '.'");
+                }
+                string fieldName = current->text;
+                advance();
+                expr = new FieldAccessExp(expr, fieldName);
+            } else if (match(Token::LBRACKET)) {
+                Exp* index = parseExpression();
+                
+                // Check for slice syntax [start:end]
+                if (match(Token::COLON)) {
+                    // This is a slice expression
+                    Exp* end = nullptr;
+                    if (!check(Token::RBRACKET)) {
+                        end = parseExpression();
+                    }
+                    if (!match(Token::RBRACKET)) {
+                        error("Expected ']' after slice");
+                    }
+                    expr = new SliceExp(expr, index, end);
+                } else {
+                    // Regular array indexing
+                    if (!match(Token::RBRACKET)) {
+                        error("Expected ']' after array index");
+                    }
+                    expr = new IndexExp(expr, index);
+                }
+            } else {
+                break;
             }
-            string fieldName = current->text;
-            advance();
-            expr = new FieldAccessExp(expr, fieldName);
-        } else if (match(Token::LBRACKET)) {
-            Exp* index = parseExpression();
-            if (!match(Token::RBRACKET)) {
-                error("Expected ']' after array index");
-            }
-            expr = new IndexExp(expr, index);
-        } else {
-            break;
         }
-    }
     
     return expr;
 }
@@ -769,10 +799,25 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
             expr = new FieldAccessExp(expr, fieldName);
         } else if (match(Token::LBRACKET)) {
             Exp* index = parseExpression();
-            if (!match(Token::RBRACKET)) {
-                error("Expected ']' after array index");
+            
+            // Check for slice syntax [start:end]
+            if (match(Token::COLON)) {
+                // This is a slice expression
+                Exp* end = nullptr;
+                if (!check(Token::RBRACKET)) {
+                    end = parseExpression();
+                }
+                if (!match(Token::RBRACKET)) {
+                    error("Expected ']' after slice");
+                }
+                expr = new SliceExp(expr, index, end);
+            } else {
+                // Regular array indexing
+                if (!match(Token::RBRACKET)) {
+                    error("Expected ']' after array index");
+                }
+                expr = new IndexExp(expr, index);
             }
-            expr = new IndexExp(expr, index);
         } else if (match(Token::LPAREN)) {
             // Function call - for simplicity, we'll create the function name from the expression
             string funcName = identifierName;

@@ -193,3 +193,12 @@ Program::~Program() {
     for (auto func : functions) delete func;
 }
 void Program::accept(Visitor* visitor) { visitor->visit(this); }
+
+SliceExp::SliceExp(Exp* arr, Exp* startIdx, Exp* endIdx) 
+    : array(arr), start(startIdx), end(endIdx) {}
+SliceExp::~SliceExp() {
+    delete array;
+    if (start) delete start;
+    if (end) delete end;
+}
+void SliceExp::accept(Visitor* visitor) { visitor->visit(this); }

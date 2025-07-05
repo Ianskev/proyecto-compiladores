@@ -52,6 +52,7 @@ Token* Scanner::nextToken() {
     
     // Literales de string
     else if (c == '"') {
+        int start = current + 1; // Empezar después de la comilla inicial
         current++; // saltar comilla inicial
         while (current < input.length() && input[current] != '"') {
             if (input[current] == '\\' && current + 1 < input.length()) {
@@ -60,8 +61,14 @@ Token* Scanner::nextToken() {
                 current++;
             }
         }
-        if (current < input.length()) current++; // saltar comilla final
-        token = new Token(Token::STRING_LIT, input, first, current - first);
+        if (current < input.length()) {
+            // Crear token solo con el contenido, sin las comillas
+            token = new Token(Token::STRING_LIT, input, start, current - start);
+            current++; // saltar comilla final
+        } else {
+            // String no cerrado - incluir todo para mostrar error
+            token = new Token(Token::STRING_LIT, input, first, current - first);
+        }
     }
     
     // Identificadores y palabras reservadas

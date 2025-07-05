@@ -87,6 +87,19 @@ void PrintVisitor::visit(StructLiteralExp* exp) {
     cout << "}";
 }
 
+void PrintVisitor::visit(SliceExp* exp) {
+    exp->array->accept(this);
+    cout << "[";
+    if (exp->start) {
+        exp->start->accept(this);
+    }
+    cout << ":";
+    if (exp->end) {
+        exp->end->accept(this);
+    }
+    cout << "]";
+}
+
 // Tipos
 void PrintVisitor::visit(BasicType* type) {
     cout << type->typeName;
