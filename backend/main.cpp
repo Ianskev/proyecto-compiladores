@@ -2,14 +2,14 @@
 #include <fstream>
 #include <string>
 #include "scanner.h"
-#include "parser.h"
-#include "visitor.h"
+// #include "parser.h"  // Comentado hasta que implementemos el parser
+// #include "visitor.h" // Comentado hasta que implementemos el parser
 
 using namespace std;
 
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
-        cout << "Numero incorrecto de argumentos. Uso: " << argv[0] << " <archivo_de_entrada>" << endl;
+        cout << "Numero incorrecto de argumentos. Uso: " << argv[0] << " <archivo_go>" << endl;
         exit(1);
     }
 
@@ -26,33 +26,26 @@ int main(int argc, const char* argv[]) {
     }
     infile.close();
 
+    cout << "=== COMPILADOR GO ===" << endl;
+    cout << "Archivo: " << argv[1] << endl;
+    cout << "Contenido:" << endl;
+    cout << input << endl;
+    cout << "===================" << endl << endl;
+
+    // Fase 1: Scanner
     Scanner scanner(input.c_str());
+    test_scanner(&scanner);
+    cout << "Scanner exitoso" << endl << endl;
 
-    string input_copy = input;
-    Scanner scanner_test(input_copy.c_str());
-    test_scanner(&scanner_test);
-    cout << "Scanner exitoso" << endl;
-    cout << endl;
-    cout << "Iniciando parsing:" << endl;
-    Parser parser(&scanner); 
-    try {
-        Program* program = parser.parseProgram();
-        cout << "Parsing exitoso" << endl << endl;
-        cout << "Iniciando Visitor:" << endl;
-        PrintVisitor printVisitor;
-        ImpCODE interpreter;
-        cout << endl;
-        cout << "IMPRIMIR:" << endl;
-        printVisitor.imprimir(program);
-        cout  << endl;
-        cout << endl << "Run program:" << endl;
-        interpreter.interpret(program);
-        cout << "End of program execution" << endl;
-        delete program;
-    } catch (const exception& e) {
-        cout << "Error durante la ejecución: " << e.what() << endl;
-        return 1;
-    }
-
+    // TODO: Implementar Parser para Go
+    // GoParser parser(&scanner); 
+    // Program* program = parser.parse();
+    
+    // TODO: Implementar PrintVisitor para Go
+    // PrintVisitor printVisitor;
+    // printVisitor.print(program);
+    
+    cout << "Compilador terminado (solo scanner implementado por ahora)" << endl;
+    
     return 0;
 }
