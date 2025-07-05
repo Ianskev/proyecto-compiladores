@@ -484,13 +484,13 @@ ForStmt* GoParser::parseForStmt() {
     
     // Check if this is a simple for loop (just condition) or full for loop
     if (!check(Token::LBRACE)) {
-        // Parse init statement if present
-        if (!check(Token::SEMICOLON)) {
-            init = parseSimpleStmt();
-        }
+        // Parse first part - could be init or condition
+        Stmt* firstStmt = parseSimpleStmt();
         
         if (match(Token::SEMICOLON)) {
-            // Full for loop: for init; condition; post
+            // This was init; now parse condition and post
+            init = firstStmt;
+            
             if (!check(Token::SEMICOLON)) {
                 condition = parseExpression();
             }
@@ -503,12 +503,13 @@ ForStmt* GoParser::parseForStmt() {
                 post = parseSimpleStmt();
             }
         } else {
-            // Simple for loop: for condition
-            // The init we parsed is actually the condition
-            if (init) {
-                // Convert the statement back to expression (this is a simplification)
-                condition = new NumberExp(1); // Placeholder
-                init = nullptr;
+            // This was the condition (simple for loop)
+            // Convert statement to expression
+            ExprStmt* exprStmt = dynamic_cast<ExprStmt*>(firstStmt);
+            if (exprStmt) {
+                condition = exprStmt->expression;
+            } else {
+                error("Invalid for loop condition");
             }
         }
     }
@@ -711,7 +712,7 @@ Exp* GoParser::parsePrimaryExpr() {
     }
     
     // Handle postfix operations: field access and indexing
-    while (true) {
+    while (expr != nullptr) {
         if (match(Token::DOT)) {
             if (!check(Token::ID)) {
                 error("Expected field name after '.'");
@@ -853,6 +854,35 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
             }
             expr = new FunctionCallExp(funcName, args);
             break;
+        } else if (check(Token::LT) || check(Token::LE) || check(Token::GT) || 
+                  check(Token::GE) || check(Token::EQ) || check(Token::NE) ||
+                  check(Token::PLUS) || check(Token::MINUS) || check(Token::MUL) || 
+                  check(Token::DIV) || check(Token::MOD) || check(Token::AND) || 
+                  check(Token::OR)) {
+            // Handle binary operators for comparison and arithmetic
+            BinaryOp op;
+            
+            if (match(Token::LT)) op = LT_OP;
+            else if (match(Token::LE)) op = LE_OP;
+            else if (match(Token::GT)) op = GT_OP;
+            else if (match(Token::GE)) op = GE_OP;
+            else if (match(Token::EQ)) op = EQ_OP;
+            else if (match(Token::NE)) op = NE_OP;
+            else if (match(Token::PLUS)) op = PLUS_OP;
+            else if (match(Token::MINUS)) op = MINUS_OP;
+            else if (match(Token::MUL)) op = MUL_OP;
+            else if (match(Token::DIV)) op = DIV_OP;
+            else if (match(Token::MOD)) op = MOD_OP;
+            else if (match(Token::AND)) op = AND_OP;
+            else if (match(Token::OR)) op = OR_OP;
+            else break;
+            
+            // Parse the right side of the binary operation
+            Exp* right = parseAdditiveExpr(); // Use appropriate precedence level
+            expr = new BinaryExp(expr, right, op);
+            
+            // Continue parsing operators if there are more
+            continue;
         } else {
             break;
         }
