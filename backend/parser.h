@@ -68,6 +68,9 @@ private:
     // Literals
     StructLiteralExp* parseStructLiteral(const string& typeName);
     
+    // Helper for parsing expressions that start with an identifier
+    Exp* parseExpressionFromIdentifier(const string& identifierName);
+    
 public:
     GoParser(Scanner* sc);
     Program* parse();
