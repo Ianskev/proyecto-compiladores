@@ -689,7 +689,7 @@ Exp* GoParser::parsePrimaryExpr() {
                 error("Expected ')' after function arguments");
             }
             expr = new FunctionCallExp(name, args);
-        } else if (match(Token::LBRACE) && !name.empty() && isupper(name[0])) {
+        } else if (!name.empty() && isupper(name[0]) && match(Token::LBRACE)) {
             // Struct literal - only if name starts with uppercase (Go convention for types)
             list<Exp*> values = parseStructLiteralValues();
             if (!match(Token::RBRACE)) {
@@ -708,40 +708,42 @@ Exp* GoParser::parsePrimaryExpr() {
     } else {
         error("Expected expression");
         return nullptr;
-    }        // Handle postfix operations: field access and indexing
-        while (true) {
-            if (match(Token::DOT)) {
-                if (!check(Token::ID)) {
-                    error("Expected field name after '.'");
-                }
-                string fieldName = current->text;
-                advance();
-                expr = new FieldAccessExp(expr, fieldName);
-            } else if (match(Token::LBRACKET)) {
-                Exp* index = parseExpression();
-                
-                // Check for slice syntax [start:end]
-                if (match(Token::COLON)) {
-                    // This is a slice expression
-                    Exp* end = nullptr;
-                    if (!check(Token::RBRACKET)) {
-                        end = parseExpression();
-                    }
-                    if (!match(Token::RBRACKET)) {
-                        error("Expected ']' after slice");
-                    }
-                    expr = new SliceExp(expr, index, end);
-                } else {
-                    // Regular array indexing
-                    if (!match(Token::RBRACKET)) {
-                        error("Expected ']' after array index");
-                    }
-                    expr = new IndexExp(expr, index);
-                }
-            } else {
-                break;
+    }
+    
+    // Handle postfix operations: field access and indexing
+    while (true) {
+        if (match(Token::DOT)) {
+            if (!check(Token::ID)) {
+                error("Expected field name after '.'");
             }
+            string fieldName = current->text;
+            advance();
+            expr = new FieldAccessExp(expr, fieldName);
+        } else if (match(Token::LBRACKET)) {
+            Exp* index = parseExpression();
+            
+            // Check for slice syntax [start:end]
+            if (match(Token::COLON)) {
+                // This is a slice expression
+                Exp* end = nullptr;
+                if (!check(Token::RBRACKET)) {
+                    end = parseExpression();
+                }
+                if (!match(Token::RBRACKET)) {
+                    error("Expected ']' after slice");
+                }
+                expr = new SliceExp(expr, index, end);
+            } else {
+                // Regular array indexing
+                if (!match(Token::RBRACKET)) {
+                    error("Expected ']' after array index");
+                }
+                expr = new IndexExp(expr, index);
+            }
+        } else {
+            break;
         }
+    }
     
     return expr;
 }
