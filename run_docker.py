@@ -69,8 +69,11 @@ if __name__ == "__main__":
             sys.exit(1)
     
     # Ejecutar el contenedor Docker
+    print("\n✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
     print("\nIniciando aplicación en Docker...")
     print("Una vez iniciado, accede a: http://localhost:8501")
+    print("❌ Evita: http://0.0.0.0:8501 (puede causar problemas de red)")
+    print("\n✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
     
     if not run_docker_container():
         print("Error al ejecutar el contenedor Docker.")
