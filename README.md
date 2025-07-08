@@ -54,13 +54,6 @@ cd proyecto-compiladores
 pip install streamlit
 ```
 
-3. **Compilar el backend**:
-```bash
-cd backend
-g++ -o main *.cpp
-cd ..
-```
-
 ## 🎮 Ejecución del Proyecto
 
 ### Opción 1: Interfaz Web (Recomendada)
@@ -94,22 +87,6 @@ gcc -no-pie -o programa resultado/result.s
 ```bash
 ./programa
 ```
-
-### Solución de Problemas Comunes
-
-#### Problemas de Red
-- **Síntoma**: La aplicación no carga o es lenta
-- **Solución**: Usa `http://127.0.0.1:8501` en lugar de `http://0.0.0.0:8501`
-
-#### Problemas de Permisos
-- **Síntoma**: `[Errno 13] Permission denied`
-- **Solución**: El sistema intentará solucionarlo automáticamente, o ejecuta `chmod +x backend/main`
-
-### Opciones de Compilación
-
-- **Solo generar ensamblador**: `./backend/main archivo.go -s`
-- **Verbose**: `./backend/main archivo.go -v`
-
 ---
 
 ## 📁 Estructura del Proyecto
