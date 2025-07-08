@@ -246,9 +246,3 @@ func main() {
 </div>
 
 ---
-
-<div align="center">
-
-Made with ❤️ by UTEC Students
-
-</div>
