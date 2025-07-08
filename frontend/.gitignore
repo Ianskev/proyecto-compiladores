@@ -1,0 +1,161 @@
+# Archivos del sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archivos compilados de C++
+*.o
+*.obj
+*.exe
+*.out
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.pdb
+
+# Archivos de compilación
+*.d
+*.map
+*.lst
+*.s
+*.asm
+*.i
+*.bc
+*.ll
+
+# Directorios de compilación
+build/
+cmake-build-*/
+Debug/
+Release/
+x64/
+x86/
+
+# Archivos de CMake
+CMakeFiles/
+CMakeCache.txt
+*.cmake
+Makefile
+!CMakeLists.txt
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Entornos virtuales de Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+resultado/
+# Archivos de configuración de IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos de configuración de compiladores
+*.gch
+*.pch
+*.ilk
+*.meta
+*.pdb
+*.idb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Archivos de logs y temporales
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.patch
+*.diff
+
+# Archivos de documentación generados
+*.pdf
+!**/README.pdf
+!**/manual.pdf
+!**/documentation.pdf
+
+# Archivos de texto temporales
+*.txt~
+*.tmp.txt
+
+# Archivos de configuración local
+.env
+.env.local
+.env.*.local
+config.local.*
+
+# Archivos de base de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de caché
+.cache/
+*.cache
+
+# Archivos de análisis estático
+.cppcheck/
+.clang-tidy
+.clang-format
+
+# Archivos de testing
+coverage/
+.coverage
+.nyc_output/
+test-results/
