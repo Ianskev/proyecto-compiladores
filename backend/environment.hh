@@ -5,27 +5,31 @@
 #include <vector>
 #include <unordered_map>
 #include <iostream>
-
 #include "imp_value.h"
 
 using namespace std;
 
-// Información simple de una variable
+// Información de una variable
 struct VarInfo {
     int offset;
     ImpVType type;
 };
 
+// Información de una función
+struct FuncInfo {
+    // Por ahora simple, podríamos añadir tipos de parámetros y retorno
+    int stack_size; 
+};
+
 class Environment {
 private:
-    // Lista de "niveles" de scope. Cada nivel es un mapa de nombre de var a su info.
-    vector<unordered_map<string, VarInfo>> levels;
+    vector<unordered_map<string, VarInfo>> var_levels;
+    unordered_map<string, FuncInfo> functions;
 
-    // Busca una variable desde el scope actual hacia afuera.
     int search_rib(const string& var) {
-        int idx = levels.size() - 1;
+        int idx = var_levels.size() - 1;
         while (idx >= 0) {
-            if (levels[idx].find(var) != levels[idx].end()) {
+            if (var_levels[idx].find(var) != var_levels[idx].end()) {
                 return idx;
             }
             idx--;
@@ -37,45 +41,58 @@ public:
     Environment() {}
 
     void clear() {
-        levels.clear();
+        var_levels.clear();
+        functions.clear();
     }
 
-    // Abre un nuevo scope (ej. al entrar a un bloque)
     void add_level() {
-        levels.push_back({});
+        var_levels.push_back({});
     }
 
-    // Cierra el scope actual
     bool remove_level() {
-        if (!levels.empty()) {
-            levels.pop_back();
+        if (!var_levels.empty()) {
+            var_levels.pop_back();
             return true;
         }
         return false;
     }
 
-    // Agrega una variable al scope actual
     void add_var(const string& var, int offset, ImpVType type) {
-        if (levels.empty()) {
+        if (var_levels.empty()) {
             cout << "Environment sin niveles: no se pueden agregar variables" << endl;
             exit(1);
         }
-        levels.back()[var] = {offset, type};
+        var_levels.back()[var] = {offset, type};
     }
     
-    // Verifica si una variable existe en algún scope
     bool check(const string& x) {
         return search_rib(x) >= 0;
     }
 
-    // Obtiene la información de una variable
     VarInfo lookup(const string& x) {
         int idx = search_rib(x);
         if (idx < 0) {
             cout << "Variable no declarada: " << x << endl;
             exit(1);
         }
-        return levels[idx][x];
+        return var_levels[idx][x];
+    }
+
+    // --- NUEVAS FUNCIONES PARA GESTIÓN DE FUNCIONES ---
+    void add_function(const string& name, const FuncInfo& info) {
+        functions[name] = info;
+    }
+
+    bool has_function(const string& name) {
+        return functions.find(name) != functions.end();
+    }
+
+    FuncInfo get_function(const string& name) {
+        if (!has_function(name)) {
+            cout << "Función no declarada: " << name << endl;
+            exit(1);
+        }
+        return functions[name];
     }
 };
 
