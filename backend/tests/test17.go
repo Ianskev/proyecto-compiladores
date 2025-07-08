@@ -7,10 +7,8 @@ type Persona struct {
 	edad   int
 }
 
-func Saludar(p Persona) string {
-	return "Hola mi nombre es " + p.nombre
-}
 func main() {
 	p1 := Persona{"Ian", 19}
-	fmt.Println(Saludar(p1))
+
+	fmt.Println("me llamo " + p1.nombre + " mi nombre tiene", len(p1.nombre), "letras")
 }

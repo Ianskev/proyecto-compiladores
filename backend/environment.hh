@@ -1,80 +1,131 @@
-#ifndef ENV
-#define ENV
+#ifndef GO_ENVIRONMENT_H
+#define GO_ENVIRONMENT_H
 
-#include <list>
 #include <string>
-#include <unordered_map>
 #include <vector>
-
+#include <unordered_map>
 #include <iostream>
+#include "imp_value.h"
 
 using namespace std;
 
-template <typename T>
+struct VarInfo {
+    int offset;
+    ImpVType type;
+    string struct_name;
+};
+
+struct FieldInfo {
+    string type_name;
+    ImpVType type;
+    int size;
+};
+
+struct StructInfo {
+    string name;
+    std::unordered_map<string, FieldInfo> fields; 
+    std::unordered_map<string, int> offsets;      
+    int size = 0;
+};
+
+struct FuncInfo {
+    int stack_size; 
+    ImpVType return_type;
+};
+
 class Environment {
-   private:
-    vector<unordered_map<string, T> > ribs;
-    int search_rib(string var) {
-        int idx = ribs.size() - 1;
+private:
+    vector<unordered_map<string, VarInfo>> var_levels;
+    unordered_map<string, FuncInfo> functions;
+    unordered_map<string, StructInfo> structs;
+
+    int search_rib(const string& var) {
+        int idx = var_levels.size() - 1;
         while (idx >= 0) {
-            typename std::unordered_map<std::string, T>::const_iterator it =
-                ribs[idx].find(var);
-            if (it != ribs[idx].end())
+            if (var_levels[idx].find(var) != var_levels[idx].end()) {
                 return idx;
+            }
             idx--;
         }
         return -1;
     }
 
-   public:
+public:
     Environment() {}
-    void clear() { ribs.clear(); }
+
+    void clear() {
+        var_levels.clear();
+        functions.clear();
+        structs.clear();
+    }
+
     void add_level() {
-        unordered_map<string, T> r;
-        ribs.push_back(r);
+        var_levels.push_back({});
     }
-    void add_var(string var, T value) {
-        if (ribs.size() == 0) {
-            cout << "Environment sin niveles: no se pueden agregar variables"
-                 << endl;
-            exit(0);
-        }
-        ribs.back()[var] = value;
-    }
-    void add_var(string var) { ribs.back()[var] = 0; }
 
     bool remove_level() {
-        if (ribs.size() > 0) {
-            ribs.pop_back();
+        if (!var_levels.empty()) {
+            var_levels.pop_back();
             return true;
         }
         return false;
     }
-    bool update(string x, T v) {
-        int idx = search_rib(x);
-        if (idx < 0)
-            return false;
-        ribs[idx][x] = v;
-        return true;
+
+    void add_var(const string& var, int offset, ImpVType type, const string& struct_name = "") {
+        if (var_levels.empty()) {
+            cout << "Environment sin niveles: no se pueden agregar variables" << endl;
+            exit(1);
+        }
+        var_levels.back()[var] = {offset, type, struct_name};
     }
-    bool check(string x) {
-        int idx = search_rib(x);
-        return (idx >= 0);
+    
+    bool check(const string& x) {
+        return search_rib(x) >= 0;
     }
-    T lookup(string x) {
-        T a;
+
+    VarInfo lookup(const string& x) {
         int idx = search_rib(x);
-        if (idx < 0)
-            return a;
-        else
-            return ribs[idx][x];
+        if (idx < 0) {
+            cerr << "Error en tiempo de compilación: Variable no declarada: " << x << endl;
+            exit(1);
+        }
+        return var_levels[idx][x];
     }
-    bool lookup(string x, T& v) {
-        int idx = search_rib(x);
-        if (idx < 0)
-            return false;
-        v = ribs[idx][x];
-        return true;
+
+    void add_function(const string& name, const FuncInfo& info) {
+        functions[name] = info;
+    }
+
+    bool has_function(const string& name) {
+        return functions.find(name) != functions.end();
+    }
+
+    FuncInfo get_function(const string& name) {
+        if (!has_function(name)) {
+            cerr << "Error en tiempo de compilación: Función no declarada: " << name << endl;
+            exit(1);
+        }
+        return functions[name];
+    }
+    
+    void add_struct(const string& name, const StructInfo& info) {
+        if (has_struct(name)) {
+             cerr << "Error: Redefinición del struct '" << name << "'" << endl;
+             exit(1);
+        }
+        structs[name] = info;
+    }
+
+    bool has_struct(const string& name) {
+        return structs.find(name) != structs.end();
+    }
+
+    StructInfo get_struct(const string& name) {
+        if (!has_struct(name)) {
+            cerr << "Error: Uso de tipo struct no definido '" << name << "'" << endl;
+            exit(1);
+        }
+        return structs[name];
     }
 };
 

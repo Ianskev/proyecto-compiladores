@@ -3,10 +3,10 @@ package main
 import "fmt"
 
 func main() {
-	s1 := "Hola"
-	fmt.Println(s1[0:3])
+	s := "hola"
+	fmt.Println("Length:", len(s))
 
-	for i := 0; i < len(s1[0:3]); i++ {
+	for i := 0; i < len(s); i++ {
 		fmt.Println(i)
 	}
 }

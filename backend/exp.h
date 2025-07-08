@@ -9,6 +9,8 @@ using namespace std;
 
 // Forward declarations
 class Visitor;
+class ImpValueVisitor;
+class ImpValue;
 
 //=== ENUMS ===
 enum BinaryOp { 
@@ -31,6 +33,7 @@ class Exp {
 public:
     virtual ~Exp() = 0;
     virtual void accept(Visitor* visitor) = 0;
+    virtual ImpValue accept(ImpValueVisitor* visitor) = 0;
     static string binopToString(BinaryOp op);
     static string unopToString(UnaryOp op);
 };
@@ -42,6 +45,7 @@ public:
     BinaryOp op;
     BinaryExp(Exp* l, Exp* r, BinaryOp op);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~BinaryExp();
 };
 
@@ -51,6 +55,7 @@ public:
     UnaryOp op;
     UnaryExp(Exp* e, UnaryOp op);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~UnaryExp();
 };
 
@@ -59,6 +64,7 @@ public:
     int value;
     NumberExp(int v);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~NumberExp();
 };
 
@@ -67,6 +73,7 @@ public:
     string value;
     StringExp(const string& v);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~StringExp();
 };
 
@@ -75,6 +82,7 @@ public:
     bool value;
     BoolExp(bool v);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~BoolExp();
 };
 
@@ -83,6 +91,7 @@ public:
     string name;
     IdentifierExp(const string& n);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~IdentifierExp();
 };
 
@@ -92,6 +101,7 @@ public:
     string field;
     FieldAccessExp(Exp* obj, const string& f);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~FieldAccessExp();
 };
 
@@ -101,6 +111,7 @@ public:
     Exp* index;
     IndexExp(Exp* arr, Exp* idx);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~IndexExp();
 };
 
@@ -110,6 +121,7 @@ public:
     list<Exp*> args;
     FunctionCallExp(const string& name, list<Exp*> arguments);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~FunctionCallExp();
 };
 
@@ -119,6 +131,7 @@ public:
     list<Exp*> values; // Para inicialización posicional
     StructLiteralExp(const string& type, list<Exp*> vals);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~StructLiteralExp();
 };
 
@@ -129,6 +142,7 @@ public:
     Exp* end;    // puede ser nullptr
     SliceExp(Exp* arr, Exp* startIdx, Exp* endIdx);
     void accept(Visitor* visitor) override;
+    ImpValue accept(ImpValueVisitor* visitor) override;
     ~SliceExp();
 };
 
@@ -172,6 +186,7 @@ class Stmt {
 public:
     virtual ~Stmt() = 0;
     virtual void accept(Visitor* visitor) = 0;
+    virtual void accept(ImpValueVisitor* visitor) = 0;
 };
 
 class ExprStmt : public Stmt {
@@ -179,6 +194,7 @@ public:
     Exp* expression;
     ExprStmt(Exp* exp);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~ExprStmt();
 };
 
@@ -189,24 +205,27 @@ public:
     AssignOp op;
     AssignStmt(Exp* left, Exp* right, AssignOp operation);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~AssignStmt();
 };
 
 class ShortVarDecl : public Stmt {
 public:
-    list<string> vars;
+    list<string> identifiers;
     list<Exp*> values;
     ShortVarDecl(list<string> variables, list<Exp*> vals);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~ShortVarDecl();
 };
 
 class IncDecStmt : public Stmt {
 public:
-    string var;
+    string variable;
     bool isIncrement; // true para ++, false para --
-    IncDecStmt(const string& variable, bool inc);
+    IncDecStmt(const string& var, bool inc);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~IncDecStmt();
 };
 
@@ -217,6 +236,7 @@ public:
     class Block* elseBlock; // puede ser nullptr
     IfStmt(Exp* cond, Block* thenB, Block* elseB = nullptr);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~IfStmt();
 };
 
@@ -228,6 +248,7 @@ public:
     class Block* body;
     ForStmt(Stmt* initStmt, Exp* cond, Stmt* postStmt, Block* bodyBlock);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~ForStmt();
 };
 
@@ -236,6 +257,7 @@ public:
     Exp* expression; // puede ser nullptr
     ReturnStmt(Exp* exp = nullptr);
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~ReturnStmt();
 };
 
@@ -247,6 +269,7 @@ public:
     list<Exp*> values; // puede estar vacía
     VarDecl(list<string> varNames, Type* varType, list<Exp*> initValues = list<Exp*>());
     void accept(Visitor* visitor) override;
+    void accept(ImpValueVisitor* visitor) override;
     ~VarDecl();
 };
 
@@ -256,6 +279,7 @@ public:
     StructType* structType;
     TypeDecl(const string& typeName, StructType* type);
     void accept(Visitor* visitor);
+    void accept(ImpValueVisitor* visitor);
     ~TypeDecl();
 };
 
@@ -268,6 +292,7 @@ public:
     FuncDecl(const string& funcName, list<pair<string, Type*>> parameters, 
              Type* retType, Block* bodyBlock);
     void accept(Visitor* visitor);
+    void accept(ImpValueVisitor* visitor);
     ~FuncDecl();
 };
 
@@ -277,6 +302,7 @@ public:
     list<Stmt*> statements;
     Block(list<Stmt*> stmts);
     void accept(Visitor* visitor);
+    void accept(ImpValueVisitor* visitor);
     ~Block();
 };
 
@@ -285,6 +311,7 @@ public:
     string path;
     ImportDecl(const string& importPath);
     void accept(Visitor* visitor);
+    void accept(ImpValueVisitor* visitor);
     ~ImportDecl();
 };
 
@@ -300,6 +327,7 @@ public:
             list<VarDecl*> vars, list<TypeDecl*> typeDecls, 
             list<FuncDecl*> funcs);
     void accept(Visitor* visitor);
+    void accept(ImpValueVisitor* visitor);
     ~Program();
 };
 

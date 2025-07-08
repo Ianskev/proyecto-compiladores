@@ -143,7 +143,7 @@ void PrintVisitor::visit(AssignStmt* stmt) {
 
 void PrintVisitor::visit(ShortVarDecl* stmt) {
     bool first = true;
-    for (auto& var : stmt->vars) {
+    for (auto& var : stmt->identifiers) {
         if (!first) cout << ", ";
         cout << var;
         first = false;
@@ -158,7 +158,7 @@ void PrintVisitor::visit(ShortVarDecl* stmt) {
 }
 
 void PrintVisitor::visit(IncDecStmt* stmt) {
-    cout << stmt->var;
+    cout << stmt->variable;
     if (stmt->isIncrement) cout << "++";
     else cout << "--";
 }
