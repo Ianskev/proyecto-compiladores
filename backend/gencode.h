@@ -19,7 +19,7 @@ private:
     int label_counter;
     int string_counter;
     std::ostream& output;
-    string current_epilogue_label; // <-- AÑADIDO: Para manejar los 'return'
+    string current_epilogue_label; // Para manejar los 'return'
 
     string new_label();
     void generate_prologue();

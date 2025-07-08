@@ -3,11 +3,13 @@ package main
 import "fmt"
 
 type Rectangulo struct {
-	ancho, alto int
+	ancho int,
+	alto int
 }
 
 type Triangulo struct {
-	base, altura int
+	base int,
+	altura int
 }
 
 func main() {

@@ -18,7 +18,7 @@ struct VarInfo {
 // Información de una función
 struct FuncInfo {
     int stack_size; 
-    ImpVType return_type; // <-- AÑADIDO: Para saber qué tipo devuelve la función
+    ImpVType return_type;
 };
 
 class Environment {
@@ -72,13 +72,12 @@ public:
     VarInfo lookup(const string& x) {
         int idx = search_rib(x);
         if (idx < 0) {
-            cout << "Variable no declarada: " << x << endl;
+            cerr << "Error en tiempo de compilación: Variable no declarada: " << x << endl;
             exit(1);
         }
         return var_levels[idx][x];
     }
 
-    // --- NUEVAS FUNCIONES PARA GESTIÓN DE FUNCIONES ---
     void add_function(const string& name, const FuncInfo& info) {
         functions[name] = info;
     }
@@ -89,7 +88,7 @@ public:
 
     FuncInfo get_function(const string& name) {
         if (!has_function(name)) {
-            cout << "Función no declarada: " << name << endl;
+            cerr << "Error en tiempo de compilación: Función no declarada: " << name << endl;
             exit(1);
         }
         return functions[name];

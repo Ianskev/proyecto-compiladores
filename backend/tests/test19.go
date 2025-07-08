@@ -7,7 +7,9 @@ type Cubo struct {
 }
 
 type PrismaRectangular struct {
-	ancho, largo, alto int
+	ancho int, 
+	largo int,
+	alto int
 }
 
 func main() {

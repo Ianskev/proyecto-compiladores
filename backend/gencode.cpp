@@ -1,10 +1,11 @@
 #include "gencode.h"
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 
 using namespace std;
 
-// --- StringCollectorVisitor (Sin cambios) ---
+// --- StringCollectorVisitor ---
 class StringCollectorVisitor : public ImpValueVisitor {
 public:
     std::unordered_map<std::string, std::string>& string_literals;
@@ -24,6 +25,7 @@ public:
     void visit(ForStmt* stmt) override { if (stmt->init) stmt->init->accept(this); if (stmt->condition) stmt->condition->accept(this); if (stmt->post) stmt->post->accept(this); stmt->body->accept(this); }
     void visit(Block* block) override { for (auto s : block->statements) s->accept(this); }
     void visit(Program* program) override { for (auto f : program->functions) f->accept(this); }
+    // <-- CORREGIDO: Añadir guarda para cuerpo nulo
     void visit(FuncDecl* decl) override { if (decl->body) decl->body->accept(this); }
     void visit(VarDecl* stmt) override { for (auto v : stmt->values) if (v) v->accept(this); }
     void visit(ShortVarDecl* stmt) override { for (auto v : stmt->values) if (v) v->accept(this); }
@@ -50,30 +52,32 @@ GoCodeGen::GoCodeGen(std::ostream& out)
 string GoCodeGen::new_label() { return "L" + to_string(label_counter++); }
 
 void GoCodeGen::generateCode(Program* program) {
-    // PASO 1: Recolectar información
-    StringCollectorVisitor string_collector(this->string_literals, this->string_counter);
-    program->accept(&string_collector);
-    
-    env.clear();
-    env.add_level();
-    for (auto f : program->functions) {
-        // <-- CORREGIDO: Guardar el tipo de retorno de la función
-        ImpVType retType = NOTYPE;
-        if (f->returnType) {
-            if (auto bt = dynamic_cast<BasicType*>(f->returnType)) {
-                retType = ImpValue::get_basic_type(bt->typeName);
+    try {
+        StringCollectorVisitor string_collector(this->string_literals, this->string_counter);
+        program->accept(&string_collector);
+        
+        env.clear();
+        env.add_level();
+        for (auto f : program->functions) {
+            ImpVType retType = NOTYPE;
+            if (f->returnType) {
+                if (auto bt = dynamic_cast<BasicType*>(f->returnType)) {
+                    retType = ImpValue::get_basic_type(bt->typeName);
+                }
             }
+            env.add_function(f->name, {calculate_block_size(f->body), retType});
         }
-        env.add_function(f->name, {calculate_block_size(f->body), retType});
-    }
-    
-    // PASO 2: Generar el código
-    current_offset = 0;
-    label_counter = 0;
+        
+        current_offset = 0;
+        label_counter = 0;
 
-    generate_prologue();
-    program->accept(this);
-    generate_epilogue();
+        generate_prologue();
+        program->accept(this);
+        generate_epilogue();
+    } catch (const std::runtime_error& e) {
+        cerr << "Error de generación de código: " << e.what() << endl;
+        // No generar nada si hay un error
+    }
 }
 
 void GoCodeGen::generate_prologue() {
@@ -94,7 +98,7 @@ void GoCodeGen::generate_string_literals() {
     for (const auto& kv : string_literals) {
         string val = kv.first;
         size_t pos = 0;
-        while ((pos = val.find("\\", pos)) != std::string::npos) {
+        while ((pos = val.find('\\', pos)) != std::string::npos) {
             val.replace(pos, 1, "\\\\");
             pos += 2;
         }
@@ -118,7 +122,9 @@ int GoCodeGen::calculate_stmt_size(Stmt* stmt) {
 
 int GoCodeGen::calculate_block_size(Block* block) {
     int size = 0;
-    for(auto s : block->statements) size += calculate_stmt_size(s);
+    if (block) {
+        for(auto s : block->statements) size += calculate_stmt_size(s);
+    }
     return size;
 }
 
@@ -131,7 +137,6 @@ void GoCodeGen::visit(Program* program) {
 }
 
 void GoCodeGen::visit(FuncDecl* decl) {
-    // <-- CORREGIDO: Lógica de manejo de parámetros y epílogo
     current_epilogue_label = new_label();
 
     output << ".globl " << decl->name << endl;
@@ -140,7 +145,7 @@ void GoCodeGen::visit(FuncDecl* decl) {
     output << "  movq %rsp, %rbp" << endl;
 
     int stack_size = env.get_function(decl->name).stack_size;
-    stack_size += decl->params.size() * 8; // Espacio para guardar parámetros
+    stack_size += decl->params.size() * 8; 
 
     if (stack_size > 0) {
         if (stack_size % 16 != 0) stack_size = ((stack_size + 15) / 16) * 16;
@@ -150,21 +155,21 @@ void GoCodeGen::visit(FuncDecl* decl) {
     current_offset = 0;
     env.add_level();
 
-    // Guardar parámetros de registros en el stack y añadirlos al environment
     const char* arg_regs[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
     int i = 0;
     for (auto param : decl->params) {
         if (i < 6) { 
             current_offset -= 8;
-            env.add_var(param.first, current_offset, NOTYPE); // El tipo no es crucial aquí
+            env.add_var(param.first, current_offset, NOTYPE);
             output << "  movq " << arg_regs[i] << ", " << current_offset << "(%rbp) # Guardar param " << param.first << endl;
             i++;
         }
     }
 
-    decl->body->accept(this);
+    if (decl->body) {
+        decl->body->accept(this);
+    }
 
-    // Epílogo de la función
     output << current_epilogue_label << ":" << endl;
     if (decl->name == "main") {
         output << "  movq $0, %rax" << endl;
@@ -192,7 +197,7 @@ void GoCodeGen::visit(AssignStmt* stmt) {
             int offset = env.lookup(id->name).offset;
             output << "  movq %rax, " << offset << "(%rbp) # Almacenar en " << id->name << endl;
         } else {
-            output << "  # ERROR: Asignación a variable no definida " << id->name << endl;
+            throw runtime_error("Asignación a variable no definida '" + id->name + "'");
         }
     }
 }
@@ -203,9 +208,11 @@ void GoCodeGen::visit(ShortVarDecl* stmt) {
     while (varIt != stmt->identifiers.end()) {
         current_offset -= 8;
         ImpValue val;
-        if(valIt != stmt->values.end()) val = (*valIt)->accept(this);
+        if(valIt != stmt->values.end() && *valIt) {
+             val = (*valIt)->accept(this);
+        }
         env.add_var(*varIt, current_offset, val.type);
-        if (valIt != stmt->values.end()) {
+        if (valIt != stmt->values.end() && *valIt) {
             output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *varIt << endl;
             ++valIt;
         } else {
@@ -226,7 +233,6 @@ void GoCodeGen::visit(IncDecStmt* stmt) {
 }
 
 void GoCodeGen::visit(IfStmt* stmt) {
-    // <-- CORREGIDO: Lógica de saltos más robusta
     string else_label = new_label();
     string end_label = stmt->elseBlock ? new_label() : else_label;
     
@@ -268,7 +274,6 @@ void GoCodeGen::visit(ForStmt* stmt) {
 }
 
 void GoCodeGen::visit(ReturnStmt* stmt) {
-    // <-- CORREGIDO: Un 'return' debe saltar al final de la función
     if (stmt->expression) {
         stmt->expression->accept(this);
     }
@@ -281,9 +286,11 @@ void GoCodeGen::visit(VarDecl* stmt) {
     while (nameIt != stmt->names.end()) {
         current_offset -= 8;
         ImpValue val;
-        if(valIt != stmt->values.end()) val = (*valIt)->accept(this);
+        if(valIt != stmt->values.end() && *valIt) {
+            val = (*valIt)->accept(this);
+        }
         env.add_var(*nameIt, current_offset, val.type);
-        if (valIt != stmt->values.end()) {
+        if (valIt != stmt->values.end() && *valIt) {
             output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *nameIt << endl;
             ++valIt;
         } else {
@@ -324,19 +331,19 @@ ImpValue GoCodeGen::visit(BinaryExp* exp) {
             output << e_l << ":" << endl; break;
         }
         case OR_OP: {
-            string t_l = new_label(), e_l = new_label();
-            output << "  cmpq $0, %rax" << endl; output << "  jne " << t_l << endl;
-            output << "  cmpq $0, %rbx" << endl; output << "  je " << e_l << endl;
-            output << t_l << ":" << endl; output << "  movq $1, %rax" << endl;
-            output << "  jmp " << t_l << endl; // Salta al final si es true
-            output << e_l << ":" << endl; output << "  movq $0, %rax" << endl;
-            output << t_l << ":" << endl; break; // El label para true ya lo pone el compilador
+            // <-- CORREGIDO: Lógica correcta para OR
+            string true_label = new_label(), end_label = new_label();
+            output << "  cmpq $0, %rax" << endl; output << "  jne " << true_label << endl;
+            output << "  cmpq $0, %rbx" << endl; output << "  jne " << true_label << endl;
+            output << "  movq $0, %rax" << endl; output << "  jmp " << end_label << endl;
+            output << true_label << ":" << endl; output << "  movq $1, %rax" << endl;
+            output << end_label << ":" << endl; break;
         }
     }
-    return ImpValue(true);
+    return ImpValue(TBOOL);
 compare:
     output << "  cmpq %rbx, %rax" << endl; output << "  " << set_instruction << " %al" << endl;
-    output << "  movzbq %al, %rax" << endl; return ImpValue(true);
+    output << "  movzbq %al, %rax" << endl; return ImpValue(TBOOL);
 }
 
 ImpValue GoCodeGen::visit(UnaryExp* exp) {
@@ -354,22 +361,16 @@ ImpValue GoCodeGen::visit(StringExp* exp) { string label = string_literals[exp->
 ImpValue GoCodeGen::visit(BoolExp* exp) { output << "  movq $" << (exp->value ? 1 : 0) << ", %rax" << endl; return ImpValue(exp->value); }
 
 ImpValue GoCodeGen::visit(IdentifierExp* exp) {
-    if (env.check(exp->name)) {
-        VarInfo info = env.lookup(exp->name);
-        output << "  movq " << info.offset << "(%rbp), %rax  # Cargar " << exp->name << endl;
-        // <-- CORREGIDO: Devolver el tipo correcto de la variable, si se conoce
-        return ImpValue(info.type); 
-    }
-    output << "  # ERROR: Variable no definida: " << exp->name << endl; output << "  movq $0, %rax" << endl;
-    return ImpValue();
+    VarInfo info = env.lookup(exp->name);
+    output << "  movq " << info.offset << "(%rbp), %rax  # Cargar " << exp->name << endl;
+    return ImpValue(info.type); 
 }
 
 ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
-    // <-- CORREGIDO: Lógica de llamada a función y manejo de tipos de retorno
     if (exp->funcName == "fmt.Println") {
         for (auto arg : exp->args) {
             if (!arg) continue;
-            ImpValue val = arg->accept(this); // Ahora 'val' tiene el tipo correcto
+            ImpValue val = arg->accept(this);
             string fmt_reg = "%rdi";
             if (val.type == TINT) { output << "  leaq print_fmt(%rip), " << fmt_reg << endl; output << "  movq %rax, %rsi" << endl; }
             else if (val.type == TSTRING) { output << "  leaq print_str_fmt(%rip), " << fmt_reg << endl; output << "  movq %rax, %rsi" << endl; }
@@ -386,7 +387,7 @@ ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
             output << "  xorq %rax, %rax" << endl;
             output << "  call printf@PLT" << endl;
         }
-        return ImpValue(); // Println no devuelve valor
+        return ImpValue();
     } else {
         if (env.has_function(exp->funcName)) {
             const char* arg_regs[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
@@ -399,13 +400,11 @@ ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
                 }
             }
             output << "  call " << exp->funcName << endl;
-            // Devolver un ImpValue con el tipo de retorno correcto de la función
             return ImpValue(env.get_function(exp->funcName).return_type);
         } else {
-            output << "  # Advertencia: Llamada a función no definida " << exp->funcName << endl;
+            throw runtime_error("Llamada a función no definida '" + exp->funcName + "'");
         }
     }
-    return ImpValue();
 }
 ImpValue GoCodeGen::visit(FieldAccessExp* exp) { return ImpValue(); }
 ImpValue GoCodeGen::visit(IndexExp* exp) { return ImpValue(); }
