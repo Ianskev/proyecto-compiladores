@@ -1,159 +1,110 @@
-152# Go Compiler - Estado Final del Proyecto
+## Introducción
 
-## Descripción
-Compilador completo para un subconjunto de Go que genera código ensamblador x86-64. Incluye scanner, parser, construcción de AST y generación de código.
+Este compilador traduce un subconjunto del lenguaje Go a código ensamblador x86_64, permitiendo la ejecución de programas Go simples en arquitecturas compatibles. El sistema realiza análisis léxico, sintáctico y genera código ensamblador optimizado para su posterior ensamblaje y ejecución.
 
-## Componentes Implementados
+## Estructura del Proyecto
 
-### 1. Scanner (backend/scanner.h, backend/scanner.cpp)
-- ✅ Reconocimiento de tokens de Go
-- ✅ Palabras reservadas (package, import, func, var, if, else, for, etc.)
-- ✅ Operadores aritméticos (+, -, *, /, ++, --)
-- ✅ Operadores de comparación (==, !=, <, <=, >, >=)
-- ✅ Operadores lógicos (&&, ||, !)
-- ✅ Literales (números, strings, booleanos)
-- ✅ Identificadores y delimitadores
-- ✅ Manejo de comentarios
-- ✅ Asignación corta (:=)
+El compilador está organizado en los siguientes componentes principales:
 
-### 2. Parser (backend/parser.h, backend/parser.cpp)
-- ✅ Gramática completa de Go implementada
-- ✅ Construcción de AST
-- ✅ Manejo de precedencia de operadores
-- ✅ Soporte para declaraciones de variables
-- ✅ Soporte para estructuras de control (if-else, for)
-- ✅ Soporte para funciones
-- ✅ Soporte para expresiones complejas
+```
+c:\Users\Ian\Desktop\UTEC\CICLO 5\COMPILADORES\test\
+├── backend/
+│   ├── environment.hh       # Entorno de variables y símbolos
+│   ├── exp.cpp/.h           # Representación de expresiones del AST
+│   ├── gencode.cpp/.h       # Generador de código ensamblador
+│   ├── imp_value.cpp/.h     # Valores e información de tipos
+│   ├── imp_value_visitor.h  # Interfaz para visitantes con valores de retorno
+│   ├── main.cpp             # Punto de entrada del compilador
+│   ├── parser.cpp/.h        # Analizador sintáctico
+│   ├── scanner.cpp/.h       # Analizador léxico
+│   ├── token.cpp/.h         # Definiciones de tokens
+│   ├── visitor.cpp/.h       # Sistema de visitantes para el AST
+│   ├── outputs/             # Código ensamblador generado
+│   └── tests/               # Programas Go de prueba
+└── README.md                # Este archivo
+```
 
-### 3. AST (backend/exp.h, backend/exp.cpp)
-- ✅ Jerarquía completa de nodos AST
-- ✅ Patrón Visitor implementado
-- ✅ Soporte para expresiones, statements y declaraciones
-- ✅ Nodos para todos los tipos de expresiones y statements de Go
+## Fases del Compilador
 
-### 4. Visitor Pattern (backend/visitor.h, backend/visitor.cpp)
-- ✅ PrintVisitor para mostrar el AST
-- ✅ ImpValueVisitor para generación de código
-- ✅ Doble dispatch para extensibilidad
+### 1. Análisis Léxico (Scanner)
+- Divide el código fuente en tokens (identificadores, palabras reservadas, operadores, etc.)
+- Implementado en `scanner.cpp` y `scanner.h`
+- Reconoce todos los elementos léxicos de Go soportados
 
-### 5. Generador de Código (backend/gencode.h, backend/gencode.cpp)
-- ✅ Generación de código ensamblador x86-64
-- ✅ Manejo de variables en stack
-- ✅ Generación de etiquetas para control de flujo
-- ✅ Soporte para expresiones aritméticas y lógicas
-- ✅ Soporte para if-else y for loops
-- ✅ Integración con printf para fmt.Println
+### 2. Análisis Sintáctico (Parser)
+- Construye un Árbol de Sintaxis Abstracta (AST) a partir de los tokens
+- Implementado en `parser.cpp` y `parser.h`
+- Valida la estructura gramatical del programa Go
 
-### 6. Valores Intermedios (backend/imp_value.h, backend/imp_value.cpp)
-- ✅ Sistema de tipos para valores intermedios
-- ✅ Soporte para enteros, booleanos y strings
-
-### 7. Entorno de Variables (backend/environment.hh)
-- ✅ Manejo de scopes anidados
-- ✅ Gestión de variables locales
+### 3. Generación de Código
+- Traduce el AST a instrucciones ensamblador x86_64
+- Utiliza un sistema de dos pasadas:
+  1. Primera pasada: Calcula offsets de variables en la pila
+  2. Segunda pasada: Genera el código ensamblador real
+- Gestiona registros, la pila, y llamadas a funciones
+- Implementado en `gencode.cpp` y `gencode.h`
 
 ## Características Soportadas
 
 ### Tipos de Datos
-- ✅ int (enteros)
-- ✅ bool (booleanos: true, false)
-- ✅ string (strings literales)
-
-### Declaraciones de Variables
-- ✅ `var x int = 10`
-- ✅ `y := 42`
-- ✅ `a, b, c := 1, 2, 3`
-
-### Operadores
-- ✅ Aritméticos: +, -, *, /
-- ✅ Unarios: +, -, !
-- ✅ Comparación: ==, !=, <, <=, >, >=
-- ✅ Lógicos: &&, ||
-- ✅ Incremento/Decremento: ++, --
-
-### Estructuras de Control
-- ✅ if statement: `if condition { ... }`
-- ✅ if-else statement: `if condition { ... } else { ... }`
-- ✅ for loop: `for init; condition; post { ... }`
-- ✅ for loop simplificado: `for condition { ... }`
-
-### Funciones
-- ✅ Definición de funciones: `func main() { ... }`
-- ✅ Llamadas a funciones: `fmt.Println(x)`
+- Enteros (`int`)
+- Cadenas (`string`)
+- Booleanos (`bool`)
+- Estructuras básicas
 
 ### Expresiones
-- ✅ Expresiones aritméticas complejas con precedencia correcta
-- ✅ Expresiones booleanas
-- ✅ Expresiones parentizadas
-- ✅ Acceso a variables
+- Operadores aritméticos: `+`, `-`, `*`, `/`, `%`
+- Operadores lógicos: `&&`, `||`, `!`
+- Operadores de comparación: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- Operadores unarios: `+`, `-`
 
-## Resultados de Testing
+### Sentencias
+- Declaración de variables (`var` y `:=`)
+- Asignación (`=`, `+=`, `-=`, etc.)
+- Condicionales (`if`, `else`)
+- Bucles (`for`)
+- Funciones (`func`)
+- Retorno (`return`)
 
-### Tests Automatizados
-- 📊 **Total de tests**: 25
-- ✅ **Tests exitosos**: 25 (100%)
-- ❌ **Tests fallidos**: 0 (0%)
-
-### Cobertura de Tests
-Los tests cubren todos los aspectos principales:
-1. Declaraciones de variables simples y múltiples
-2. Operaciones aritméticas y lógicas
-3. Estructuras de control (if-else, for)
-4. Expresiones complejas con precedencia
-5. Llamadas a funciones
-6. Operadores unarios y binarios
-7. Valores booleanos y enteros
-8. Scoping de variables
-
-## Archivos del Proyecto
-
-### Backend (C++)
-```
-backend/
-├── main.cpp              # Programa principal
-├── scanner.h/cpp         # Analizador léxico
-├── token.h/cpp           # Definiciones de tokens
-├── parser.h/cpp          # Analizador sintáctico
-├── exp.h/cpp             # Definiciones del AST
-├── visitor.h/cpp         # Patrón Visitor
-├── gencode.h/cpp         # Generador de código
-├── imp_value.h/cpp       # Valores intermedios
-├── imp_value_visitor.h   # Interfaz visitor para código
-├── environment.hh        # Manejo de entornos
-└── tests/                # Archivos de prueba (25 tests)
-```
-
-### Frontend (Python)
-```
-├── test_compiler.py      # Script de testing automático
-└── README.md            # Este archivo
-```
+### Biblioteca Estándar
+- Soporte básico para `fmt.Println()`
 
 ## Uso del Compilador
 
-### Compilación
+### Compilación y Ejecución
+
+1. **Compilar el compilador:**
+
 ```bash
-cd backend
-g++ -o main main.cpp scanner.cpp token.cpp parser.cpp exp.cpp visitor.cpp gencode.cpp imp_value.cpp
+g++ -o goc backend/*.cpp
 ```
 
-### Ejecución
-```bash
-# Compilación completa con debug
-./main archivo.go
+2. **Compilar un programa Go:**
 
-# Solo generación de ensamblador
-./main archivo.go -s > archivo.s
+```bash
+./goc ruta/al/programa.go
+# Genera ruta/al/programa.s (código ensamblador)
 ```
 
-### Testing Automático
+3. **Ensamblar y enlazar:**
+
 ```bash
-python test_compiler.py
+gcc -no-pie -o programa programa.s
 ```
 
-## Ejemplo de Código Generado
+4. **Ejecutar:**
 
-### Código Go de Entrada
+```bash
+./programa
+```
+
+### Opciones
+
+- `-s`: Solo genera código ensamblador sin imprimir información adicional
+
+## Ejemplos
+
+### Ejemplo 1: Hello World con variables
 ```go
 package main
 
@@ -165,7 +116,113 @@ func main() {
 }
 ```
 
-### Código Ensamblador Generado
+### Ejemplo 2: Operaciones aritméticas
+```go
+package main
+
+import "fmt"
+
+func main() {
+    result := 1 + 2*3 - 4/2
+    fmt.Println(result)
+}
+```
+
+### Ejemplo 3: Condicionales
+```go
+package main
+
+import "fmt"
+
+func main() {
+    x := -3
+    if x >= 0 {
+        fmt.Println("no negativo")
+    } else {
+        fmt.Println("negativo")
+    }
+}
+```
+
+### Ejemplo 4: Bucles
+```go
+package main
+
+import "fmt"
+
+func main() {
+    n := 0
+    for n < 3 {
+        fmt.Println(n)
+        n++
+    }
+}
+```
+
+## Implementación de la Generación de Código
+
+El generador de código sigue estos pasos para crear código ensamblador eficiente:
+
+1. **Recolección de información preliminar**:
+   - Recorre el AST para recopilar literales de cadena y definiciones de funciones
+   - Calcula el tamaño necesario para el stack de cada función
+
+2. **Generación de prólogo y epílogo**:
+   - Establece correctamente el marco de pila para cada función
+   - Garantiza la alineación de 16 bytes requerida por la ABI de x86_64
+
+3. **Gestión de variables**:
+   - Asigna espacio en la pila para cada variable local
+   - Mantiene un registro de los offsets de cada variable
+
+4. **Optimizaciones**:
+   - Usa registros de manera eficiente para operaciones aritméticas
+   - Implementa evaluación de cortocircuito para operaciones lógicas
+
+## Limitaciones Actuales
+
+- No se admiten arrays multidimensionales
+- Soporte limitado para punteros y referencias
+- No hay verificación de tipos completa
+- No se implementa recolección de basura
+- Soporte limitado para la biblioteca estándar
+- No se admiten goroutines ni canales
+- No se implementa interfaz completa para estructuras
+
+## Desarrolladores
+
+Este compilador fue desarrollado como proyecto del curso de Compiladores en UTEC.
+
+## Licencia
+
+Este proyecto es para fines educativos y de investigación.
+
+---
+
+## Próximos Pasos
+
+- Implementar verificación de tipos más robusta
+- Ampliar el soporte para la biblioteca estándar
+- Optimización de código generado
+- Soporte para más características avanzadas de Go
+
+## Ejemplos de Código Generado
+
+### Ejemplo 1: Variables Enteras
+
+#### Código Go de Entrada
+```go
+package main
+
+import "fmt"
+
+func main() {
+    x := 10
+    fmt.Println(x)
+}
+```
+
+#### Código Ensamblador Generado
 ```assembly
 .data
 print_fmt: .string "%ld\n"
@@ -177,49 +234,73 @@ print_bool_false: .string "false\n"
 main:
   pushq %rbp
   movq %rsp, %rbp
+  subq $16, %rsp  # Reservar espacio para 1 variable
   movq $10, %rax
-  movq %rax, -8(%rbp)
-  movq -8(%rbp), %rax
+  movq %rax, -8(%rbp)  # Inicializar x
+  movq -8(%rbp), %rax  # Cargar x
   leaq print_fmt(%rip), %rdi
   movq %rax, %rsi
   xorq %rax, %rax
-  call printf
-  movl $0, %eax
+  call printf@PLT
+  movq $0, %rax
   leave
   ret
 .section .note.GNU-stack,"",@progbits
 ```
 
-## Estado del Proyecto
+### Ejemplo 2: Variables de Cadena
 
-### ✅ Completado
-- [x] Scanner completo para Go
-- [x] Parser con gramática completa
-- [x] AST con todos los nodos necesarios
-- [x] Patrón Visitor implementado
-- [x] Generación de código x86-64
-- [x] Sistema de testing automático
-- [x] Manejo de variables y scoping
-- [x] Estructuras de control
-- [x] Expresiones aritméticas y lógicas
-- [x] 100% de tests pasando
+#### Código Go de Entrada
+```go
+package main
 
-### 🚧 Posibles Mejoras Futuras
-- [ ] Soporte para más tipos (float, arrays completos, structs)
-- [ ] Funciones con parámetros y valores de retorno
-- [ ] Optimizaciones en generación de código
-- [ ] Manejo de errores más detallado
-- [ ] Soporte para más operadores
-- [ ] Generación de código ejecutable completo
+import "fmt"
 
-## Conclusión
+func main() {
+    a, b, c := "foo", "bar", "baz"
+    fmt.Println(a, b, c)
+}
+```
 
-El compilador de Go está **completamente funcional** y cumple con todos los objetivos establecidos:
-
-1. ✅ Scanner y Parser funcionando correctamente
-2. ✅ AST bien estructurado con patrón Visitor
-3. ✅ Generación de código ensamblador x86-64
-4. ✅ Testing automático con 100% de éxito
-5. ✅ Soporte para las construcciones principales de Go
-
-El proyecto demuestra una implementación completa de un compilador para un subconjunto significativo del lenguaje Go, con todas las fases necesarias desde el análisis léxico hasta la generación de código ensamblador.
+#### Código Ensamblador Generado
+```assembly
+.data
+print_fmt: .string "%ld\n"
+print_str_fmt: .string "%s\n"
+print_bool_true: .string "true\n"
+print_bool_false: .string "false\n"
+string_2: .string "baz"
+string_1: .string "bar"
+string_0: .string "foo"
+.text
+.globl main
+main:
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $32, %rsp  # Reservar espacio para 3 variables
+  leaq string_0(%rip), %rax
+  movq %rax, -8(%rbp)  # Inicializar a
+  leaq string_1(%rip), %rax
+  movq %rax, -16(%rbp)  # Inicializar b
+  leaq string_2(%rip), %rax
+  movq %rax, -24(%rbp)  # Inicializar c
+  movq -8(%rbp), %rax  # Cargar a
+  leaq print_str_fmt(%rip), %rdi
+  movq %rax, %rsi
+  xorq %rax, %rax
+  call printf@PLT
+  movq -16(%rbp), %rax  # Cargar b
+  leaq print_str_fmt(%rip), %rdi
+  movq %rax, %rsi
+  xorq %rax, %rax
+  call printf@PLT
+  movq -24(%rbp), %rax  # Cargar c
+  leaq print_str_fmt(%rip), %rdi
+  movq %rax, %rsi
+  xorq %rax, %rax
+  call printf@PLT
+  movq $0, %rax
+  leave
+  ret
+.section .note.GNU-stack,"",@progbits
+```
