@@ -17,8 +17,8 @@ struct VarInfo {
 
 // Información de una función
 struct FuncInfo {
-    // Por ahora simple, podríamos añadir tipos de parámetros y retorno
     int stack_size; 
+    ImpVType return_type; // <-- AÑADIDO: Para saber qué tipo devuelve la función
 };
 
 class Environment {

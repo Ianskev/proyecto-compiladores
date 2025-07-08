@@ -15,6 +15,7 @@ public:
     bool bool_value;
     string string_value;
     
+    ImpValue(ImpVType t);
     ImpValue(int v);
     ImpValue(bool v);
     ImpValue(string v);

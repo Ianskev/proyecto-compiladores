@@ -9,6 +9,11 @@ ImpValue::ImpValue(bool v) : type(TBOOL), int_value(0), bool_value(v), string_va
 
 ImpValue::ImpValue(string v) : type(TSTRING), int_value(0), bool_value(false), string_value(v) {}
 
+// Constructor AÑADIDO: Crea un ImpValue a partir de un tipo, con valor por defecto.
+ImpValue::ImpValue(ImpVType t) : type(t) {
+    set_default_value(t);
+}
+
 void ImpValue::set_default_value(ImpVType tt) {
     type = tt;
     switch(tt) {

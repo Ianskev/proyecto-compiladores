@@ -117,3 +117,13 @@ if successful_generations > 0:
             print(f"   - {output_file}")
 
 print("\n🎉 Proceso completado!")
+
+print("\nEliminando archivo ejecutable...")
+try:
+    if os.path.exists(executable):
+        os.remove(executable)
+        print(f"✅ Archivo {executable} eliminado correctamente")
+    else:
+        print(f"⚠️ Archivo {executable} no encontrado")
+except Exception as e:
+    print(f"❌ Error al eliminar {executable}: {e}")
