@@ -1,81 +1,82 @@
-#ifndef ENV
-#define ENV
+#ifndef GO_ENVIRONMENT_H
+#define GO_ENVIRONMENT_H
 
-#include <list>
 #include <string>
-#include <unordered_map>
 #include <vector>
-
+#include <unordered_map>
 #include <iostream>
+
+#include "imp_value.h"
 
 using namespace std;
 
-template <typename T>
+// Información simple de una variable
+struct VarInfo {
+    int offset;
+    ImpVType type;
+};
+
 class Environment {
-   private:
-    vector<unordered_map<string, T> > ribs;
-    int search_rib(string var) {
-        int idx = ribs.size() - 1;
+private:
+    // Lista de "niveles" de scope. Cada nivel es un mapa de nombre de var a su info.
+    vector<unordered_map<string, VarInfo>> levels;
+
+    // Busca una variable desde el scope actual hacia afuera.
+    int search_rib(const string& var) {
+        int idx = levels.size() - 1;
         while (idx >= 0) {
-            typename std::unordered_map<std::string, T>::const_iterator it =
-                ribs[idx].find(var);
-            if (it != ribs[idx].end())
+            if (levels[idx].find(var) != levels[idx].end()) {
                 return idx;
+            }
             idx--;
         }
         return -1;
     }
 
-   public:
+public:
     Environment() {}
-    void clear() { ribs.clear(); }
-    void add_level() {
-        unordered_map<string, T> r;
-        ribs.push_back(r);
-    }
-    void add_var(string var, T value) {
-        if (ribs.size() == 0) {
-            cout << "Environment sin niveles: no se pueden agregar variables"
-                 << endl;
-            exit(0);
-        }
-        ribs.back()[var] = value;
-    }
-    void add_var(string var) { ribs.back()[var] = 0; }
 
+    void clear() {
+        levels.clear();
+    }
+
+    // Abre un nuevo scope (ej. al entrar a un bloque)
+    void add_level() {
+        levels.push_back({});
+    }
+
+    // Cierra el scope actual
     bool remove_level() {
-        if (ribs.size() > 0) {
-            ribs.pop_back();
+        if (!levels.empty()) {
+            levels.pop_back();
             return true;
         }
         return false;
     }
-    bool update(string x, T v) {
-        int idx = search_rib(x);
-        if (idx < 0)
-            return false;
-        ribs[idx][x] = v;
-        return true;
+
+    // Agrega una variable al scope actual
+    void add_var(const string& var, int offset, ImpVType type) {
+        if (levels.empty()) {
+            cout << "Environment sin niveles: no se pueden agregar variables" << endl;
+            exit(1);
+        }
+        levels.back()[var] = {offset, type};
     }
-    bool check(string x) {
-        int idx = search_rib(x);
-        return (idx >= 0);
+    
+    // Verifica si una variable existe en algún scope
+    bool check(const string& x) {
+        return search_rib(x) >= 0;
     }
-    T lookup(string x) {
-        T a;
+
+    // Obtiene la información de una variable
+    VarInfo lookup(const string& x) {
         int idx = search_rib(x);
-        if (idx < 0)
-            return a;
-        else
-            return ribs[idx][x];
-    }
-    bool lookup(string x, T& v) {
-        int idx = search_rib(x);
-        if (idx < 0)
-            return false;
-        v = ribs[idx][x];
-        return true;
+        if (idx < 0) {
+            cout << "Variable no declarada: " << x << endl;
+            exit(1);
+        }
+        return levels[idx][x];
     }
 };
 
-#endif
+#endif // GO_ENVIRONMENT_H

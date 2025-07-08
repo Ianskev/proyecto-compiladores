@@ -4,189 +4,137 @@
 
 using namespace std;
 
-// =================== Implementación de OffsetCalculator ===================
-OffsetCalculator::OffsetCalculator() : current_offset(0) {}
+// =================== Nuevo: StringCollectorVisitor (Corregido) ===================
+// Este visitante SÓLO recorre el AST para encontrar literales de cadena.
+// No escribe ningún código ensamblador.
+class StringCollectorVisitor : public ImpValueVisitor {
+public:
+    std::unordered_map<std::string, std::string>& string_literals;
+    int& string_counter;
 
-std::unordered_map<std::string, int> OffsetCalculator::calculateOffsets(Program* program) {
-    env.clear();
-    current_offset = 0;
-    stack_offsets.clear();
-    
-    // Calcular offsets para variables recorriendo el AST
-    program->accept(this);
-    
-    return stack_offsets;
-}
+    StringCollectorVisitor(std::unordered_map<std::string, std::string>& literals, int& counter)
+        : string_literals(literals), string_counter(counter) {}
 
-// Recorrer el árbol para expresiones
-ImpValue OffsetCalculator::visit(BinaryExp* exp) {
-    exp->left->accept(this);
-    exp->right->accept(this);
-    return ImpValue();
-}
-
-ImpValue OffsetCalculator::visit(UnaryExp* exp) {
-    exp->exp->accept(this);
-    return ImpValue();
-}
-
-// Implementaciones vacías para literales y expresiones simples
-ImpValue OffsetCalculator::visit(NumberExp* exp) { return ImpValue(); }
-ImpValue OffsetCalculator::visit(StringExp* exp) { return ImpValue(); }
-ImpValue OffsetCalculator::visit(BoolExp* exp) { return ImpValue(); }
-ImpValue OffsetCalculator::visit(IdentifierExp* exp) { return ImpValue(); }
-ImpValue OffsetCalculator::visit(FieldAccessExp* exp) { 
-    exp->object->accept(this);
-    return ImpValue(); 
-}
-ImpValue OffsetCalculator::visit(IndexExp* exp) { 
-    exp->array->accept(this);
-    exp->index->accept(this);
-    return ImpValue();
-}
-ImpValue OffsetCalculator::visit(SliceExp* exp) {
-    exp->array->accept(this);
-    if (exp->start) exp->start->accept(this);
-    if (exp->end) exp->end->accept(this);
-    return ImpValue();
-}
-ImpValue OffsetCalculator::visit(StructLiteralExp* exp) {
-    for (auto val : exp->values) {
-        val->accept(this);
+    // El único método que hace algo es para StringExp
+    ImpValue visit(StringExp* exp) override {
+        if (string_literals.find(exp->value) == string_literals.end()) {
+            string label = "string_" + to_string(string_counter++);
+            string_literals[exp->value] = label;
+        }
+        return ImpValue();
     }
-    return ImpValue();
-}
 
-ImpValue OffsetCalculator::visit(FunctionCallExp* exp) {
-    for (auto arg : exp->args) {
-        arg->accept(this);
+    // El resto de los métodos solo se encargan de continuar el recorrido
+    ImpValue visit(BinaryExp* exp) override {
+        exp->left->accept(this);
+        exp->right->accept(this);
+        return ImpValue();
     }
-    return ImpValue();
-}
-
-// Visitantes de sentencias para asignar variables
-void OffsetCalculator::visit(ExprStmt* stmt) {
-    stmt->expression->accept(this);
-}
-
-void OffsetCalculator::visit(AssignStmt* stmt) {
-    stmt->lhs->accept(this);
-    stmt->rhs->accept(this);
-}
-
-void OffsetCalculator::visit(ShortVarDecl* stmt) {
-    // Para declaraciones cortas de variables, asignar espacio en pila para cada variable
-    for (const string& var : stmt->identifiers) {
-        current_offset -= 8; // Asignar 8 bytes para cada variable
-        stack_offsets[var] = current_offset;
-        env.add_var(var, ImpValue());
+    ImpValue visit(UnaryExp* exp) override {
+        exp->exp->accept(this);
+        return ImpValue();
     }
-    
-    // Recorrer expresiones para posibles declaraciones de variables en ámbitos anidados
-    for (auto expr : stmt->values) {
-        expr->accept(this);
+    void visit(IfStmt* stmt) override {
+        stmt->condition->accept(this);
+        stmt->thenBlock->accept(this);
+        if (stmt->elseBlock) stmt->elseBlock->accept(this);
     }
-}
-
-void OffsetCalculator::visit(IncDecStmt* stmt) {
-    // Nada que asignar aquí
-}
-
-void OffsetCalculator::visit(IfStmt* stmt) {
-    stmt->condition->accept(this);
-    stmt->thenBlock->accept(this);
-    if (stmt->elseBlock) stmt->elseBlock->accept(this);
-}
-
-void OffsetCalculator::visit(ForStmt* stmt) {
-    if (stmt->init) stmt->init->accept(this);
-    if (stmt->condition) stmt->condition->accept(this);
-    if (stmt->post) stmt->post->accept(this);
-    stmt->body->accept(this);
-}
-
-void OffsetCalculator::visit(ReturnStmt* stmt) {
-    if (stmt->expression) stmt->expression->accept(this);
-}
-
-void OffsetCalculator::visit(VarDecl* stmt) {
-    // Asignar espacio en pila para cada variable
-    for (const string& name : stmt->names) {
-        current_offset -= 8; // Asignar 8 bytes para cada variable
-        stack_offsets[name] = current_offset;
-        env.add_var(name, ImpValue());
+    void visit(ForStmt* stmt) override {
+        if (stmt->init) stmt->init->accept(this);
+        if (stmt->condition) stmt->condition->accept(this);
+        if (stmt->post) stmt->post->accept(this);
+        stmt->body->accept(this);
     }
-    
-    // Recorrer expresiones para posibles declaraciones de variables en ámbitos anidados
-    for (auto expr : stmt->values) {
-        expr->accept(this);
+    void visit(Block* block) override {
+        for (auto s : block->statements) s->accept(this);
     }
-}
-
-void OffsetCalculator::visit(TypeDecl* decl) {
-    // Las declaraciones de tipo struct no asignan variables de pila
-}
-
-void OffsetCalculator::visit(FuncDecl* decl) {
-    if (decl->name == "main") {
-        env.add_level();
+    void visit(Program* program) override {
+        for (auto f : program->functions) f->accept(this);
+    }
+    void visit(FuncDecl* decl) override {
         decl->body->accept(this);
-        env.remove_level();
     }
-}
-
-void OffsetCalculator::visit(Block* block) {
-    env.add_level();
-    
-    for (auto stmt : block->statements) {
-        stmt->accept(this);
+    void visit(VarDecl* stmt) override {
+        for (auto v : stmt->values) {
+            if (v) v->accept(this);
+        }
     }
-    
-    env.remove_level();
-}
-
-void OffsetCalculator::visit(ImportDecl* decl) {
-    // Las declaraciones de importación no asignan variables de pila
-}
-
-void OffsetCalculator::visit(Program* program) {
-    env.add_level();
-    
-    // Procesar funciones (especialmente main)
-    for (auto func : program->functions) {
-        func->accept(this);
+    void visit(ShortVarDecl* stmt) override {
+        for (auto v : stmt->values) {
+            if (v) v->accept(this);
+        }
+    }
+    void visit(AssignStmt* stmt) override {
+        stmt->lhs->accept(this);
+        stmt->rhs->accept(this);
+    }
+    void visit(ExprStmt* stmt) override {
+        stmt->expression->accept(this);
+    }
+    void visit(ReturnStmt* stmt) override {
+        if(stmt->expression) stmt->expression->accept(this);
     }
     
-    env.remove_level();
-}
+    // --- CORRECCIÓN AQUÍ ---
+    ImpValue visit(FunctionCallExp* exp) override {
+        for(auto arg : exp->args) {
+            if (arg) arg->accept(this);
+        }
+        return ImpValue(); // Devolver un ImpValue
+    }
 
-// =================== Implementación de GoCodeGen ===================
+    // Métodos vacíos para nodos que no contienen expresiones
+    ImpValue visit(NumberExp* exp) override { return ImpValue(); }
+    ImpValue visit(BoolExp* exp) override { return ImpValue(); }
+    ImpValue visit(IdentifierExp* exp) override { return ImpValue(); }
+    ImpValue visit(FieldAccessExp* exp) override { return ImpValue(); }
+    ImpValue visit(IndexExp* exp) override { return ImpValue(); }
+    ImpValue visit(SliceExp* exp) override { return ImpValue(); }
+    ImpValue visit(StructLiteralExp* exp) override { return ImpValue(); }
+    void visit(IncDecStmt* stmt) override {}
+    void visit(TypeDecl* decl) override {}
+    void visit(ImportDecl* decl) override {}
+};
+
+
+// =================== Implementación de GoCodeGen (Corregido) ===================
+
 GoCodeGen::GoCodeGen(std::ostream& out) 
-    : current_offset(0), label_counter(0), string_counter(0), output(out) {}
+    : current_offset(0), label_counter(0), string_counter(0), output(out) {
+    env.add_level(); // Nivel global
+}
 
 string GoCodeGen::new_label() {
     return "L" + to_string(label_counter++);
 }
 
 void GoCodeGen::generateCode(Program* program) {
-    // Primera pasada: Calcular offsets de pila
-    OffsetCalculator calculator;
-    stack_offsets = calculator.calculateOffsets(program);
+    // --- PASO 1: Recolectar información (sin generar código) ---
+    // Usamos nuestro nuevo visitante para recolectar strings.
+    StringCollectorVisitor string_collector(this->string_literals, this->string_counter);
+    program->accept(&string_collector);
     
-    // Obtener el offset directo del calculador para asegurar consistencia
-    current_offset = calculator.getCurrentOffset();
+    // Calculamos el tamaño del stack.
+    int stack_size = calculate_stack_size(program);
     
-    // Segunda pasada: Generar código
-    generate_prologue();
-    program->accept(this);
+    // --- PASO 2: Generar el código en el orden correcto ---
+    current_offset = 0;
+    label_counter = 0;
+    env.clear();
+    env.add_level();
+
+    generate_prologue(stack_size);
+    program->accept(this); // AHORA SÍ, la única llamada que genera código.
     generate_epilogue();
 }
 
-void GoCodeGen::generate_prologue() {
+void GoCodeGen::generate_prologue(int stack_size) {
     output << ".data" << endl;
     output << "print_fmt: .string \"%ld\\n\"" << endl;
-    
-    // Agregar literales de cadena si existen
+    output << "print_str_fmt: .string \"%s\\n\"" << endl;
+    output << "print_bool_true: .string \"true\\n\"" << endl;
+    output << "print_bool_false: .string \"false\\n\"" << endl;
+
     generate_string_literals();
     
     output << ".text" << endl;
@@ -195,17 +143,11 @@ void GoCodeGen::generate_prologue() {
     output << "  pushq %rbp" << endl;
     output << "  movq %rsp, %rbp" << endl;
     
-    // Calcular tamaño de pila (será positivo porque current_offset es negativo)
-    int stack_size = -current_offset;
-    
-    // Asegurar alineación de 16 bytes (requerido por ABI)
-    if (stack_size % 16 != 0) {
-        stack_size = ((stack_size + 15) / 16) * 16;
-    }
-    
-    // Emitir siempre el ajuste de pila cuando tenemos variables locales
     if (stack_size > 0) {
-        output << "  subq $" << stack_size << ", %rsp  # Reservar espacio para " << (-current_offset/8) << " variables" << endl;
+        if (stack_size % 16 != 0) {
+            stack_size = ((stack_size + 15) / 16) * 16;
+        }
+        output << "  subq $" << stack_size << ", %rsp" << endl;
     }
 }
 
@@ -217,38 +159,72 @@ void GoCodeGen::generate_epilogue() {
 }
 
 void GoCodeGen::generate_string_literals() {
-    // Generar los literales de cadena utilizados en el programa
     for (const auto& kv : string_literals) {
-        output << kv.second << ": .string \"" << kv.first << "\"" << endl;
+        // Escapar caracteres especiales como \n si es necesario.
+        string val = kv.first;
+        size_t pos = 0;
+        while ((pos = val.find("\\", pos)) != std::string::npos) {
+            val.replace(pos, 1, "\\\\");
+            pos += 2;
+        }
+        output << kv.second << ": .string \"" << val << "\"" << endl;
     }
 }
 
-void GoCodeGen::visit(Program* program) {
-    env.add_level();
-    
-    for (auto func : program->functions) {
-        func->accept(this);
+// --- Calculadores de tamaño de stack (sin cambios) ---
+int GoCodeGen::calculate_stmt_size(Stmt* stmt) {
+    int size = 0;
+    if (auto s = dynamic_cast<VarDecl*>(stmt)) {
+        size += s->names.size() * 8;
+    } else if (auto s = dynamic_cast<ShortVarDecl*>(stmt)) {
+        size += s->identifiers.size() * 8;
+    } else if (auto s = dynamic_cast<IfStmt*>(stmt)) {
+        size += calculate_block_size(s->thenBlock);
+        if (s->elseBlock) size += calculate_block_size(s->elseBlock);
+    } else if (auto s = dynamic_cast<ForStmt*>(stmt)) {
+        if (s->init) size += calculate_stmt_size(s->init);
+        size += calculate_block_size(s->body);
     }
-    
-    env.remove_level();
+    return size;
+}
+
+int GoCodeGen::calculate_block_size(Block* block) {
+    int size = 0;
+    for(auto s : block->statements) {
+        size += calculate_stmt_size(s);
+    }
+    return size;
+}
+
+int GoCodeGen::calculate_stack_size(Program* p) {
+    int total_size = 0;
+    for (auto f : p->functions) {
+        if (f->name == "main") {
+            total_size += calculate_block_size(f->body);
+        }
+    }
+    return total_size;
+}
+
+void GoCodeGen::visit(Program* program) {
+    for (auto func : program->functions) {
+        if (func->name == "main") {
+            func->accept(this);
+        }
+    }
 }
 
 void GoCodeGen::visit(FuncDecl* decl) {
     if (decl->name == "main") {
-        env.add_level();
         decl->body->accept(this);
-        env.remove_level();
     }
-    // Nota: Para un compilador completo, también generaríamos código para otras funciones
 }
 
 void GoCodeGen::visit(Block* block) {
     env.add_level();
-    
     for (auto stmt : block->statements) {
         stmt->accept(this);
     }
-    
     env.remove_level();
 }
 
@@ -257,23 +233,12 @@ void GoCodeGen::visit(ExprStmt* stmt) {
 }
 
 void GoCodeGen::visit(AssignStmt* stmt) {
-    // Evaluar primero el lado derecho de la asignación
     stmt->rhs->accept(this);
-    
-    // Luego almacenar el resultado en la ubicación del lado izquierdo
     if (auto id = dynamic_cast<IdentifierExp*>(stmt->lhs)) {
-        if (stack_offsets.find(id->name) != stack_offsets.end()) {
-            int offset = stack_offsets[id->name];
+        if (env.check(id->name)) {
+            int offset = env.lookup(id->name).offset;
             output << "  movq %rax, " << offset << "(%rbp) # Almacenar en " << id->name << endl;
-        } else {
-            output << "  # Advertencia: Variable no definida " << id->name << endl;
         }
-    } else if (auto field = dynamic_cast<FieldAccessExp*>(stmt->lhs)) {
-        // Manejar acceso a campos de struct
-        output << "  # Almacenar en campo de struct no implementado completamente" << endl;
-    } else if (auto index = dynamic_cast<IndexExp*>(stmt->lhs)) {
-        // Manejar indexación de arreglos
-        output << "  # Almacenar en índice de arreglo no implementado completamente" << endl;
     }
 }
 
@@ -281,41 +246,31 @@ void GoCodeGen::visit(ShortVarDecl* stmt) {
     auto varIt = stmt->identifiers.begin();
     auto valIt = stmt->values.begin();
     
-    while (varIt != stmt->identifiers.end() && valIt != stmt->values.end()) {
-        // Evaluar la expresión de inicialización
-        (*valIt)->accept(this);
-        
-        // Almacenar el resultado en la ubicación de la variable en la pila
-        int offset = stack_offsets[*varIt];
-        output << "  movq %rax, " << offset << "(%rbp) # Inicializar " << *varIt << endl;
-        
-        ++varIt;
-        ++valIt;
-    }
-    
-    // Inicializar por defecto cualquier variable restante
     while (varIt != stmt->identifiers.end()) {
-        int offset = stack_offsets[*varIt];
-        output << "  movq $0, " << offset << "(%rbp) # Inicialización por defecto " << *varIt << endl;
+        current_offset -= 8;
+        // Determinar el tipo de la expresion
+        ImpValue val;
+        if(valIt != stmt->values.end()) {
+            val = (*valIt)->accept(this); // Esto ya pone el valor en %rax
+        }
+        env.add_var(*varIt, current_offset, val.type);
+        
+        if (valIt != stmt->values.end()) {
+            output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *varIt << endl;
+            ++valIt;
+        } else {
+            output << "  movq $0, " << current_offset << "(%rbp) # Inicializar por defecto " << *varIt << endl;
+        }
         ++varIt;
     }
 }
 
 void GoCodeGen::visit(IncDecStmt* stmt) {
-    if (stack_offsets.find(stmt->variable) != stack_offsets.end()) {
-        int offset = stack_offsets[stmt->variable];
-        
-        // Cargar el valor actual
+    if (env.check(stmt->variable)) {
+        int offset = env.lookup(stmt->variable).offset;
         output << "  movq " << offset << "(%rbp), %rax" << endl;
-        
-        // Incrementar o decrementar
-        if (stmt->isIncrement) {
-            output << "  incq %rax" << endl;
-        } else {
-            output << "  decq %rax" << endl;
-        }
-        
-        // Almacenar el valor actualizado
+        if (stmt->isIncrement) output << "  incq %rax" << endl;
+        else output << "  decq %rax" << endl;
         output << "  movq %rax, " << offset << "(%rbp)" << endl;
     }
 }
@@ -324,16 +279,13 @@ void GoCodeGen::visit(IfStmt* stmt) {
     string else_label = new_label();
     string end_label = new_label();
     
-    // Evaluar condición
     stmt->condition->accept(this);
     output << "  cmpq $0, %rax" << endl;
     output << "  je " << else_label << endl;
     
-    // Generar código para el bloque then
     stmt->thenBlock->accept(this);
     output << "  jmp " << end_label << endl;
     
-    // Generar código para el bloque else (si está presente)
     output << else_label << ":" << endl;
     if (stmt->elseBlock) {
         stmt->elseBlock->accept(this);
@@ -346,12 +298,9 @@ void GoCodeGen::visit(ForStmt* stmt) {
     string start_label = new_label();
     string end_label = new_label();
     
-    // Inicializar (si está presente)
-    if (stmt->init) {
-        stmt->init->accept(this);
-    }
+    env.add_level();
+    if (stmt->init) stmt->init->accept(this);
     
-    // Condición del bucle
     output << start_label << ":" << endl;
     if (stmt->condition) {
         stmt->condition->accept(this);
@@ -359,17 +308,13 @@ void GoCodeGen::visit(ForStmt* stmt) {
         output << "  je " << end_label << endl;
     }
     
-    // Cuerpo del bucle
     stmt->body->accept(this);
     
-    // Sentencia de post-iteración (si está presente)
-    if (stmt->post) {
-        stmt->post->accept(this);
-    }
+    if (stmt->post) stmt->post->accept(this);
     
-    // Volver al inicio
     output << "  jmp " << start_label << endl;
     output << end_label << ":" << endl;
+    env.remove_level();
 }
 
 void GoCodeGen::visit(ReturnStmt* stmt) {
@@ -382,182 +327,101 @@ void GoCodeGen::visit(VarDecl* stmt) {
     auto nameIt = stmt->names.begin();
     auto valIt = stmt->values.begin();
     
-    while (nameIt != stmt->names.end() && valIt != stmt->values.end()) {
-        // Evaluar la expresión de inicialización
-        (*valIt)->accept(this);
-        
-        // Almacenar el resultado en la ubicación de la variable en la pila
-        int offset = stack_offsets[*nameIt];
-        output << "  movq %rax, " << offset << "(%rbp) # Inicializar " << *nameIt << endl;
-        
-        ++nameIt;
-        ++valIt;
-    }
-    
-    // Inicializar por defecto cualquier variable restante
     while (nameIt != stmt->names.end()) {
-        int offset = stack_offsets[*nameIt];
-        output << "  movq $0, " << offset << "(%rbp) # Inicialización por defecto " << *nameIt << endl;
+        current_offset -= 8;
+        ImpValue val;
+        if(valIt != stmt->values.end()) {
+             val = (*valIt)->accept(this);
+        }
+        env.add_var(*nameIt, current_offset, val.type);
+        
+        if (valIt != stmt->values.end()) {
+            output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *nameIt << endl;
+            ++valIt;
+        } else {
+            output << "  movq $0, " << current_offset << "(%rbp) # Inicialización por defecto " << *nameIt << endl;
+        }
         ++nameIt;
     }
 }
 
-void GoCodeGen::visit(TypeDecl* decl) {
-    // No generamos código para declaraciones de tipo en esta versión simplificada
-}
+void GoCodeGen::visit(TypeDecl* decl) {}
+void GoCodeGen::visit(ImportDecl* decl) {}
 
-void GoCodeGen::visit(ImportDecl* decl) {
-    // No generamos código para declaraciones de importación en esta versión simplificada
-}
+// --- Visitantes de expresiones ---
 
-// Implementación de visitantes de expresiones
 ImpValue GoCodeGen::visit(BinaryExp* exp) {
-    // Manejar diferentes operadores binarios
+    ImpValue left_val = exp->left->accept(this);
+    output << "  pushq %rax" << endl;
+    ImpValue right_val = exp->right->accept(this);
+    output << "  movq %rax, %rbx" << endl;
+    output << "  popq %rax" << endl;
+
+    string set_instruction;
     switch (exp->op) {
-        case PLUS_OP:
-        case MINUS_OP:
-        case MUL_OP:
-        case DIV_OP:
-        case MOD_OP:
-            // Operaciones aritméticas
-            exp->left->accept(this);
-            output << "  pushq %rax" << endl;
-            exp->right->accept(this);
-            output << "  movq %rax, %rbx" << endl;
-            output << "  popq %rax" << endl;
-            
-            switch (exp->op) {
-                case PLUS_OP:
-                    output << "  addq %rbx, %rax" << endl;
-                    break;
-                case MINUS_OP:
-                    output << "  subq %rbx, %rax" << endl;
-                    break;
-                case MUL_OP:
-                    output << "  imulq %rbx, %rax" << endl;
-                    break;
-                case DIV_OP:
-                    output << "  cqto" << endl;  // Extender signo de RAX a RDX:RAX
-                    output << "  idivq %rbx" << endl;
-                    break;
-                case MOD_OP:
-                    output << "  cqto" << endl;
-                    output << "  idivq %rbx" << endl;
-                    output << "  movq %rdx, %rax" << endl;  // El residuo está en RDX
-                    break;
-                default:
-                    break;
-            }
+        // --- Operaciones aritméticas: devuelven TINT ---
+        case PLUS_OP: output << "  addq %rbx, %rax" << endl; return ImpValue(TINT);
+        case MINUS_OP: output << "  subq %rbx, %rax" << endl; return ImpValue(TINT);
+        case MUL_OP: output << "  imulq %rbx, %rax" << endl; return ImpValue(TINT);
+        case DIV_OP: output << "  cqto" << endl; output << "  idivq %rbx" << endl; return ImpValue(TINT);
+        case MOD_OP: output << "  cqto" << endl; output << "  idivq %rbx" << endl; output << "  movq %rdx, %rax" << endl; return ImpValue(TINT);
+        
+        // --- Operaciones de comparación: devuelven TBOOL ---
+        case LT_OP: set_instruction = "setl"; goto compare;
+        case LE_OP: set_instruction = "setle"; goto compare;
+        case GT_OP: set_instruction = "setg"; goto compare;
+        case GE_OP: set_instruction = "setge"; goto compare;
+        case EQ_OP: set_instruction = "sete"; goto compare;
+        case NE_OP: set_instruction = "setne"; goto compare;
+
+        // --- Operaciones lógicas: devuelven TBOOL ---
+        case AND_OP: {
+            string false_label = new_label();
+            string end_label = new_label();
+            output << "  cmpq $0, %rax" << endl;
+            output << "  je " << false_label << endl;
+            output << "  cmpq $0, %rbx" << endl;
+            output << "  je " << false_label << endl;
+            output << "  movq $1, %rax" << endl;
+            output << "  jmp " << end_label << endl;
+            output << false_label << ":" << endl;
+            output << "  movq $0, %rax" << endl;
+            output << end_label << ":" << endl;
             break;
-            
-        case LT_OP:
-        case LE_OP:
-        case GT_OP:
-        case GE_OP:
-        case EQ_OP:
-        case NE_OP:
-            // Operaciones de comparación
-            exp->left->accept(this);
-            output << "  pushq %rax" << endl;
-            exp->right->accept(this);
-            output << "  movq %rax, %rbx" << endl;
-            output << "  popq %rax" << endl;
-            output << "  cmpq %rbx, %rax" << endl;
-            
-            switch (exp->op) {
-                case LT_OP:
-                    output << "  setl %al" << endl;
-                    break;
-                case LE_OP:
-                    output << "  setle %al" << endl;
-                    break;
-                case GT_OP:
-                    output << "  setg %al" << endl;
-                    break;
-                case GE_OP:
-                    output << "  setge %al" << endl;
-                    break;
-                case EQ_OP:
-                    output << "  sete %al" << endl;
-                    break;
-                case NE_OP:
-                    output << "  setne %al" << endl;
-                    break;
-                default:
-                    break;
-            }
-            output << "  movzbq %al, %rax" << endl;
+        }
+        case OR_OP: {
+            string true_label = new_label();
+            string end_label = new_label();
+            output << "  cmpq $0, %rax" << endl;
+            output << "  jne " << true_label << endl;
+            output << "  cmpq $0, %rbx" << endl;
+            output << "  je " << end_label << endl; // Si el segundo es 0, el resultado es 0
+            output << true_label << ":" << endl;
+            output << "  movq $1, %rax" << endl;
+            output << end_label << ":" << endl; // Etiqueta para cuando el segundo es 0
             break;
-            
-        case AND_OP:
-        case OR_OP:
-            // Operaciones lógicas (evaluación de cortocircuito)
-            if (exp->op == AND_OP) {
-                string false_label = new_label();
-                string end_label = new_label();
-                
-                exp->left->accept(this);
-                output << "  cmpq $0, %rax" << endl;
-                output << "  je " << false_label << endl;
-                
-                exp->right->accept(this);
-                output << "  cmpq $0, %rax" << endl;
-                output << "  je " << false_label << endl;
-                
-                output << "  movq $1, %rax" << endl;
-                output << "  jmp " << end_label << endl;
-                
-                output << false_label << ":" << endl;
-                output << "  movq $0, %rax" << endl;
-                
-                output << end_label << ":" << endl;
-            } else {  // OR_OP
-                string true_label = new_label();
-                string end_label = new_label();
-                
-                exp->left->accept(this);
-                output << "  cmpq $0, %rax" << endl;
-                output << "  jne " << true_label << endl;
-                
-                exp->right->accept(this);
-                output << "  cmpq $0, %rax" << endl;
-                output << "  je " << end_label << endl;
-                
-                output << true_label << ":" << endl;
-                output << "  movq $1, %rax" << endl;
-                
-                output << end_label << ":" << endl;
-            }
-            break;
-            
-        default:
-            output << "  # Operador binario no soportado" << endl;
-            break;
+        }
     }
-    
-    return ImpValue();
+    return ImpValue(true); // Devuelve TBOOL por defecto para AND/OR
+
+compare:
+    output << "  cmpq %rbx, %rax" << endl;
+    output << "  " << set_instruction << " %al" << endl;
+    output << "  movzbq %al, %rax" << endl;
+    return ImpValue(true); // Devuelve TBOOL
 }
 
 ImpValue GoCodeGen::visit(UnaryExp* exp) {
     exp->exp->accept(this);
-    
     switch (exp->op) {
-        case UPLUS_OP:
-            // El más unario no hace nada
-            break;
-        case UMINUS_OP:
-            output << "  negq %rax" << endl;
-            break;
+        case UMINUS_OP: output << "  negq %rax" << endl; break;
         case NOT_OP:
             output << "  cmpq $0, %rax" << endl;
             output << "  sete %al" << endl;
             output << "  movzbq %al, %rax" << endl;
             break;
-        default:
-            output << "  # Operador unario no soportado" << endl;
-            break;
+        case UPLUS_OP: break;
     }
-    
     return ImpValue();
 }
 
@@ -567,14 +431,8 @@ ImpValue GoCodeGen::visit(NumberExp* exp) {
 }
 
 ImpValue GoCodeGen::visit(StringExp* exp) {
-    // Crear una etiqueta para esta cadena si no existe
-    if (string_literals.find(exp->value) == string_literals.end()) {
-        string label = ".LC" + to_string(string_counter++);
-        string_literals[exp->value] = label;
-    }
-    
     string label = string_literals[exp->value];
-    output << "  movq $0, %rax  # Cadena: " << exp->value << endl;
+    output << "  leaq " << label << "(%rip), %rax" << endl;
     return ImpValue(exp->value);
 }
 
@@ -584,50 +442,61 @@ ImpValue GoCodeGen::visit(BoolExp* exp) {
 }
 
 ImpValue GoCodeGen::visit(IdentifierExp* exp) {
-    if (stack_offsets.find(exp->name) != stack_offsets.end()) {
-        int offset = stack_offsets[exp->name];
-        output << "  movq " << offset << "(%rbp), %rax  # Cargar " << exp->name << endl;
+    if (env.check(exp->name)) {
+        VarInfo info = env.lookup(exp->name);
+        output << "  movq " << info.offset << "(%rbp), %rax  # Cargar " << exp->name << endl;
+        ImpValue val;
+        val.type = info.type;
+        return val;
     } else {
         output << "  # Advertencia: Variable no definida: " << exp->name << endl;
         output << "  movq $0, %rax" << endl;
     }
-    
-    return ImpValue();
-}
-
-ImpValue GoCodeGen::visit(FieldAccessExp* exp) {
-    output << "  # FieldAccessExp no implementado completamente" << endl;
-    return ImpValue();
-}
-
-ImpValue GoCodeGen::visit(IndexExp* exp) {
-    output << "  # IndexExp no implementado completamente" << endl;
-    return ImpValue();
-}
-
-ImpValue GoCodeGen::visit(SliceExp* exp) {
-    output << "  # SliceExp no implementado completamente" << endl;
     return ImpValue();
 }
 
 ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
-    // Manejo especial para fmt.Println
     if (exp->funcName == "fmt.Println") {
-        if (!exp->args.empty()) {
-            auto arg = exp->args.front();
-            arg->accept(this);
+        for (auto arg : exp->args) {
+            if (!arg) continue;
+
+            ImpValue val = arg->accept(this);
             
-            output << "  leaq print_fmt(%rip), %rdi" << endl;
-            output << "  movq %rax, %rsi" << endl;
-            output << "  xorq %rax, %rax" << endl;  // Limpiar RAX para función variadica
-            output << "  call printf" << endl;
+            string fmt_reg = "%rdi";
+            if (val.type == TINT) {
+                output << "  leaq print_fmt(%rip), " << fmt_reg << endl;
+                output << "  movq %rax, %rsi" << endl;
+            } else if (val.type == TSTRING) {
+                output << "  leaq print_str_fmt(%rip), " << fmt_reg << endl;
+                output << "  movq %rax, %rsi" << endl;
+            } else if (val.type == TBOOL) {
+                // Debemos usar el valor en %rax que es en tiempo de ejecución.
+                string true_label = new_label();
+                string end_label = new_label();
+                output << "  cmpq $0, %rax" << endl;
+                output << "  jne " << true_label << endl;
+                // Si es false (0)
+                output << "  leaq print_bool_false(%rip), %rdi" << endl;
+                output << "  jmp " << end_label << endl;
+                // Si es true (1)
+                output << true_label << ":" << endl;
+                output << "  leaq print_bool_true(%rip), %rdi" << endl;
+                output << end_label << ":" << endl;
+                // No necesitamos %rsi para imprimir "true" o "false"
+            } else {
+                 output << "  leaq print_fmt(%rip), " << fmt_reg << endl;
+                 output << "  movq %rax, %rsi" << endl;
+            }
+
+            output << "  xorq %rax, %rax" << endl;
+            output << "  call printf@PLT" << endl;
         }
     }
-    
     return ImpValue();
 }
 
-ImpValue GoCodeGen::visit(StructLiteralExp* exp) {
-    output << "  # StructLiteralExp no implementado completamente" << endl;
-    return ImpValue();
-}
+// Implementaciones vacías para lo no soportado
+ImpValue GoCodeGen::visit(FieldAccessExp* exp) { return ImpValue(); }
+ImpValue GoCodeGen::visit(IndexExp* exp) { return ImpValue(); }
+ImpValue GoCodeGen::visit(SliceExp* exp) { return ImpValue(); }
+ImpValue GoCodeGen::visit(StructLiteralExp* exp) { return ImpValue(); }
