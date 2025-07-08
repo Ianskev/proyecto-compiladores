@@ -74,6 +74,8 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+.resultado/
+resultado/
 
 # Archivos de configuración de IDEs
 .vscode/
