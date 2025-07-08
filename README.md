@@ -1,110 +1,206 @@
-## Introducción
+# 🖥️ Compilador de Go a Ensamblador x86_64
+
+<div align="center">
+
+![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
+![Assembly](https://img.shields.io/badge/Assembly-x86_64-red?style=for-the-badge)
+![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+
+*Un compilador educativo que traduce un subconjunto del lenguaje Go a código ensamblador x86_64*
+
+</div>
+
+---
+
+## 📋 Índice
+
+- [Introducción](#introducción)
+- [Instalación y Configuración](#instalación-y-configuración)
+- [Ejecución del Proyecto](#ejecución-del-proyecto)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Fases del Compilador](#fases-del-compilador)
+- [Características Soportadas](#características-soportadas)
+- [Ejemplos de Uso](#ejemplos-de-uso)
+- [Limitaciones](#limitaciones)
+- [Desarrolladores](#desarrolladores)
+
+---
+
+## 🎯 Introducción
 
 Este compilador traduce un subconjunto del lenguaje Go a código ensamblador x86_64, permitiendo la ejecución de programas Go simples en arquitecturas compatibles. El sistema realiza análisis léxico, sintáctico y genera código ensamblador optimizado para su posterior ensamblaje y ejecución.
 
-## Estructura del Proyecto
+## 🚀 Instalación y Configuración
 
-El compilador está organizado en los siguientes componentes principales:
+### Prerrequisitos
 
-```
-c:\Users\Ian\Desktop\UTEC\CICLO 5\COMPILADORES\test\
-├── backend/
-│   ├── environment.hh       # Entorno de variables y símbolos
-│   ├── exp.cpp/.h           # Representación de expresiones del AST
-│   ├── gencode.cpp/.h       # Generador de código ensamblador
-│   ├── imp_value.cpp/.h     # Valores e información de tipos
-│   ├── imp_value_visitor.h  # Interfaz para visitantes con valores de retorno
-│   ├── main.cpp             # Punto de entrada del compilador
-│   ├── parser.cpp/.h        # Analizador sintáctico
-│   ├── scanner.cpp/.h       # Analizador léxico
-│   ├── token.cpp/.h         # Definiciones de tokens
-│   ├── visitor.cpp/.h       # Sistema de visitantes para el AST
-│   ├── outputs/             # Código ensamblador generado
-│   └── tests/               # Programas Go de prueba
-└── README.md                # Este archivo
-```
+- **C++ Compiler**: GCC o Clang
+- **Python 3.7+**: Para el frontend web
+- **Streamlit**: Para la interfaz web
+- **Sistema operativo**: Linux, macOS o Windows con WSL
 
-## Fases del Compilador
+### Instalación
 
-### 1. Análisis Léxico (Scanner)
-- Divide el código fuente en tokens (identificadores, palabras reservadas, operadores, etc.)
-- Implementado en `scanner.cpp` y `scanner.h`
-- Reconoce todos los elementos léxicos de Go soportados
-
-### 2. Análisis Sintáctico (Parser)
-- Construye un Árbol de Sintaxis Abstracta (AST) a partir de los tokens
-- Implementado en `parser.cpp` y `parser.h`
-- Valida la estructura gramatical del programa Go
-
-### 3. Generación de Código
-- Traduce el AST a instrucciones ensamblador x86_64
-- Utiliza un sistema de dos pasadas:
-  1. Primera pasada: Calcula offsets de variables en la pila
-  2. Segunda pasada: Genera el código ensamblador real
-- Gestiona registros, la pila, y llamadas a funciones
-- Implementado en `gencode.cpp` y `gencode.h`
-
-## Características Soportadas
-
-### Tipos de Datos
-- Enteros (`int`)
-- Cadenas (`string`)
-- Booleanos (`bool`)
-- Estructuras básicas
-
-### Expresiones
-- Operadores aritméticos: `+`, `-`, `*`, `/`, `%`
-- Operadores lógicos: `&&`, `||`, `!`
-- Operadores de comparación: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- Operadores unarios: `+`, `-`
-
-### Sentencias
-- Declaración de variables (`var` y `:=`)
-- Asignación (`=`, `+=`, `-=`, etc.)
-- Condicionales (`if`, `else`)
-- Bucles (`for`)
-- Funciones (`func`)
-- Retorno (`return`)
-
-### Biblioteca Estándar
-- Soporte básico para `fmt.Println()`
-
-## Uso del Compilador
-
-### Compilación y Ejecución
-
-1. **Compilar el compilador:**
-
+1. **Clonar el repositorio**:
 ```bash
-g++ -o goc backend/*.cpp
+git clone https://github.com/usuario/proyecto-compiladores.git
+cd proyecto-compiladores
 ```
 
-2. **Compilar un programa Go:**
-
+2. **Instalar dependencias de Python**:
 ```bash
-./goc ruta/al/programa.go
-# Genera ruta/al/programa.s (código ensamblador)
+pip install streamlit
 ```
 
-3. **Ensamblar y enlazar:**
-
+3. **Compilar el backend**:
 ```bash
-gcc -no-pie -o programa programa.s
+cd backend
+g++ -o main *.cpp
+cd ..
 ```
 
-4. **Ejecutar:**
+## 🎮 Ejecución del Proyecto
 
+### Opción 1: Interfaz Web (Recomendada)
+
+1. **Ejecutar la aplicación Streamlit**:
+```bash
+cd frontend
+streamlit run frontend_app.py
+```
+
+2. **Acceder a la aplicación**:
+   - **✅ Recomendado**: `http://127.0.0.1:8501`
+   - **🆗 Alternativo**: `http://localhost:8501`
+   - **❌ Evitar**: `http://0.0.0.0:8501` (puede causar problemas de red)
+
+> **💡 Tip**: Si Streamlit muestra `http://0.0.0.0:8501` en la consola, simplemente cambia `0.0.0.0` por `127.0.0.1` en tu navegador.
+
+### Opción 2: Línea de Comandos
+
+1. **Compilar un programa Go**:
+```bash
+./backend/main archivo.go
+```
+
+2. **Ensamblar y enlazar**:
+```bash
+gcc -no-pie -o programa resultado/result.s
+```
+
+3. **Ejecutar**:
 ```bash
 ./programa
 ```
 
-### Opciones
+### Solución de Problemas Comunes
 
-- `-s`: Solo genera código ensamblador sin imprimir información adicional
+#### Problemas de Red
+- **Síntoma**: La aplicación no carga o es lenta
+- **Solución**: Usa `http://127.0.0.1:8501` en lugar de `http://0.0.0.0:8501`
 
-## Ejemplos
+#### Problemas de Permisos
+- **Síntoma**: `[Errno 13] Permission denied`
+- **Solución**: El sistema intentará solucionarlo automáticamente, o ejecuta `chmod +x backend/main`
 
-### Ejemplo 1: Hello World con variables
+### Opciones de Compilación
+
+- **Solo generar ensamblador**: `./backend/main archivo.go -s`
+- **Verbose**: `./backend/main archivo.go -v`
+
+---
+
+## 📁 Estructura del Proyecto
+
+```
+proyecto-compiladores/
+├── 🎯 backend/                 # Motor del compilador
+│   ├── environment.hh          # Entorno de variables y símbolos
+│   ├── exp.cpp/.h              # Representación de expresiones del AST
+│   ├── gencode.cpp/.h          # Generador de código ensamblador
+│   ├── imp_value.cpp/.h        # Valores e información de tipos
+│   ├── imp_value_visitor.h     # Interfaz para visitantes con valores
+│   ├── main.cpp                # Punto de entrada del compilador
+│   ├── parser.cpp/.h           # Analizador sintáctico
+│   ├── scanner.cpp/.h          # Analizador léxico
+│   ├── token.cpp/.h            # Definiciones de tokens
+│   ├── visitor.cpp/.h          # Sistema de visitantes para el AST
+│   ├── outputs/                # Código ensamblador generado
+│   └── tests/                  # Programas Go de prueba
+├── 🌐 frontend/                # Interfaz web
+│   ├── frontend_app.py         # Aplicación principal Streamlit
+│   └── executer.py             # Ejecutor del compilador
+├── 📄 resultado/               # Archivos de salida
+└── 📚 README.md               # Este archivo
+```
+
+---
+
+## ⚙️ Fases del Compilador
+
+### 🔍 1. Análisis Léxico (Scanner)
+- **Función**: Divide el código fuente en tokens
+- **Implementación**: `scanner.cpp` y `scanner.h`
+- **Reconoce**: Identificadores, palabras reservadas, operadores, literales
+
+### 🌳 2. Análisis Sintáctico (Parser)
+- **Función**: Construye un Árbol de Sintaxis Abstracta (AST)
+- **Implementación**: `parser.cpp` y `parser.h`
+- **Valida**: Estructura gramatical del programa Go
+
+### 🔧 3. Generación de Código
+- **Función**: Traduce el AST a instrucciones ensamblador x86_64
+- **Proceso**: Sistema de dos pasadas
+  1. **Primera pasada**: Calcula offsets de variables en la pila
+  2. **Segunda pasada**: Genera el código ensamblador real
+- **Gestiona**: Registros, la pila, y llamadas a funciones
+- **Implementación**: `gencode.cpp` y `gencode.h`
+
+---
+
+## ✨ Características Soportadas
+
+### 📊 Tipos de Datos
+- 🔢 **Enteros** (`int`)
+- 🔤 **Cadenas** (`string`)
+- ✅ **Booleanos** (`bool`)
+- 🏗️ **Estructuras** básicas
+
+### 🧮 Expresiones
+- ➕ **Aritméticos**: `+`, `-`, `*`, `/`, `%`
+- 🔗 **Lógicos**: `&&`, `||`, `!`
+- 🔍 **Comparación**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- 1️⃣ **Unarios**: `+`, `-`
+
+### 📝 Sentencias
+- 📦 **Declaración de variables** (`var` y `:=`)
+- 📝 **Asignación** (`=`, `+=`, `-=`, etc.)
+- 🔀 **Condicionales** (`if`, `else`)
+- 🔄 **Bucles** (`for`)
+- 🔧 **Funciones** (`func`)
+- 🔙 **Retorno** (`return`)
+
+### 📚 Biblioteca Estándar
+- 🖨️ **fmt.Println()** básico
+
+---
+
+## 💡 Ejemplos de Uso
+
+### 🌟 Ejemplo 1: Hello World
+```go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, World!")
+}
+```
+
+### 🧮 Ejemplo 2: Operaciones Aritméticas
 ```go
 package main
 
@@ -112,23 +208,13 @@ import "fmt"
 
 func main() {
     x := 10
-    fmt.Println(x)
-}
-```
-
-### Ejemplo 2: Operaciones aritméticas
-```go
-package main
-
-import "fmt"
-
-func main() {
-    result := 1 + 2*3 - 4/2
+    y := 5
+    result := x + y * 2
     fmt.Println(result)
 }
 ```
 
-### Ejemplo 3: Condicionales
+### 🔀 Ejemplo 3: Condicionales
 ```go
 package main
 
@@ -144,55 +230,48 @@ func main() {
 }
 ```
 
-### Ejemplo 4: Bucles
+### 🔄 Ejemplo 4: Bucles
 ```go
 package main
 
 import "fmt"
 
 func main() {
-    n := 0
-    for n < 3 {
-        fmt.Println(n)
-        n++
+    for i := 0; i < 5; i++ {
+        fmt.Println(i)
     }
 }
 ```
 
-## Implementación de la Generación de Código
+---
 
-El generador de código sigue estos pasos para crear código ensamblador eficiente:
+## 🚧 Limitaciones
 
-1. **Recolección de información preliminar**:
-   - Recorre el AST para recopilar literales de cadena y definiciones de funciones
-   - Calcula el tamaño necesario para el stack de cada función
+- ❌ No arrays multidimensionales
+- ❌ Soporte limitado para punteros
+- ❌ Sin verificación de tipos completa
+- ❌ Sin recolección de basura
+- ❌ Biblioteca estándar limitada
+- ❌ Sin goroutines ni canales
+- ❌ Interfaces incompletas
 
-2. **Generación de prólogo y epílogo**:
-   - Establece correctamente el marco de pila para cada función
-   - Garantiza la alineación de 16 bytes requerida por la ABI de x86_64
+---
 
-3. **Gestión de variables**:
-   - Asigna espacio en la pila para cada variable local
-   - Mantiene un registro de los offsets de cada variable
+## 👨‍💻 Desarrolladores
 
-4. **Optimizaciones**:
-   - Usa registros de manera eficiente para operaciones aritméticas
-   - Implementa evaluación de cortocircuito para operaciones lógicas
+<div align="center">
 
-## Limitaciones Actuales
+**Proyecto desarrollado como parte del curso de Compiladores**  
+**Universidad de Ingeniería y Tecnología (UTEC)**
 
-- No se admiten arrays multidimensionales
-- Soporte limitado para punteros y referencias
-- No hay verificación de tipos completa
-- No se implementa recolección de basura
-- Soporte limitado para la biblioteca estándar
-- No se admiten goroutines ni canales
-- No se implementa interfaz completa para estructuras
+*Para fines educativos y de investigación*
 
-## Desarrolladores
+</div>
 
-Este compilador fue desarrollado como proyecto del curso de Compiladores en UTEC.
+---
 
-## Licencia
+<div align="center">
 
-Este proyecto es para fines educativos y de investigación.
+Made with ❤️ by UTEC Students
+
+</div>

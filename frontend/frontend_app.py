@@ -3,6 +3,15 @@ import os
 import tempfile
 from executer import compile_go_code, compile_assembly_to_executable, run_executable, load_test_examples
 
+# Mensaje en consola sobre la URL recomendada
+print("=" * 60)
+print("🖥️  COMPILADOR GO A ENSAMBLADOR x86_64")
+print("=" * 60)
+print("💡 RECOMENDACIÓN DE ACCESO:")
+print("   ✅ Usa: http://127.0.0.1:8501")
+print("   ❌ Evita: http://0.0.0.0:8501 (puede causar problemas de red)")
+print("=" * 60)
+
 # Configuración de la página
 st.set_page_config(
     page_title="Compilador Go a x86_64",
@@ -10,6 +19,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Mensaje de configuración de red
+st.info("💡 **Recomendación**: Para evitar problemas de red, accede a la aplicación desde `http://127.0.0.1:8501` en lugar de `http://0.0.0.0:8501`")
+
+# Agregar mensaje sobre permisos si es necesario
+if os.path.exists('/.dockerenv'):
+    st.warning("🐳 **Ejecutándose en Docker**: Si experimentas problemas de permisos, el sistema intentará solucionarlos automáticamente.")
 
 # CSS personalizado
 st.markdown("""
@@ -238,6 +254,17 @@ elif selection == "Preguntas Frecuentes":
          - Soporte limitado para la biblioteca estándar
          - No se admiten goroutines ni canales
          - No se implementa interfaz completa para estructuras
+         """),
+        
+        ("¿Cómo solucionar problemas de permisos?", 
+         """
+         Si encuentras errores de permisos como `[Errno 13] Permission denied`:
+         
+         1. **En Linux/Mac**: Ejecuta `chmod +x backend/main` en la terminal
+         2. **En Docker**: El sistema debería solucionarlo automáticamente
+         3. **En Windows**: Generalmente no hay problemas de permisos
+         
+         El frontend intentará configurar automáticamente los permisos necesarios.
          """),
         
         ("¿Cuál es el flujo del compilador?", 

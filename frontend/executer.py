@@ -2,17 +2,28 @@ import os
 import subprocess
 import tempfile
 import sys
+import stat
 from pathlib import Path
 
 def ensure_dir_exists(directory):
     """Asegura que el directorio exista, creándolo si es necesario."""
     if not os.path.exists(directory):
         os.makedirs(directory)
-        print(f"Directorio creado: {directory}")
+        print(f"📁 Directorio creado: {directory}")
 
 def is_running_in_docker():
     """Detecta si el código está ejecutándose dentro de Docker."""
     return os.path.exists('/.dockerenv')
+
+def make_executable(filepath):
+    """Hace que un archivo sea ejecutable."""
+    try:
+        current_permissions = os.stat(filepath).st_mode
+        os.chmod(filepath, current_permissions | stat.S_IEXEC)
+        return True
+    except Exception as e:
+        print(f"Error al hacer ejecutable {filepath}: {e}")
+        return False
 
 def compile_go_code(go_code, output_dir="resultado", output_name="result.s"):
     """
@@ -41,10 +52,11 @@ def compile_go_code(go_code, output_dir="resultado", output_name="result.s"):
             exec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "main.exe")
             if not os.path.exists(exec_path):
                 # Intentar compilar el compilador si no existe
-                os.chdir(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend"))
+                backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend")
+                os.chdir(backend_dir)
                 subprocess.run(["g++", "-o", "main.exe"] + [f for f in os.listdir() if f.endswith('.cpp')], 
                               check=True)
-                os.chdir('../frontend')  # Return to frontend directory instead of just one level up
+                os.chdir('../frontend')
                 exec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "main.exe")
             
             result = subprocess.run([exec_path, temp_file_path, "-s"], 
@@ -52,13 +64,33 @@ def compile_go_code(go_code, output_dir="resultado", output_name="result.s"):
                                    text=True)
         else:  # Linux/Mac o Docker
             exec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "main")
+            
+            # Verificar si el archivo existe en Docker
+            if is_running_in_docker():
+                exec_path = "/app/backend/main"
+            
             if not os.path.exists(exec_path):
                 # Intentar compilar el compilador si no existe
-                os.chdir(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend"))
+                backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend")
+                if is_running_in_docker():
+                    backend_dir = "/app/backend"
+                
+                os.chdir(backend_dir)
                 subprocess.run(["g++", "-o", "main"] + [f for f in os.listdir() if f.endswith('.cpp')], 
                               check=True)
-                os.chdir('../frontend')  # Return to frontend directory instead of just one level up
-                exec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "main")
+                
+                # Hacer el archivo ejecutable
+                if not make_executable(os.path.join(backend_dir, "main")):
+                    return False, "Error: No se pudo hacer ejecutable el compilador", None
+                
+                if not is_running_in_docker():
+                    os.chdir('../frontend')
+                
+                exec_path = os.path.join(backend_dir, "main")
+            
+            # Verificar y establecer permisos de ejecución
+            if not make_executable(exec_path):
+                return False, "Error: No se pudo establecer permisos de ejecución", None
                 
             result = subprocess.run([exec_path, temp_file_path, "-s"], 
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
@@ -110,6 +142,10 @@ def compile_assembly_to_executable(assembly_file, executable_name="programa"):
         )
         
         if result.returncode == 0:
+            # Hacer el archivo ejecutable
+            if not make_executable(executable_path):
+                return False, "Error: No se pudo hacer ejecutable el programa", None
+            
             return True, f"Compilación exitosa. Ejecutable creado en: {executable_path}", executable_path
         else:
             error_msg = result.stderr if result.stderr else "Error desconocido durante la compilación"
