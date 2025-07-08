@@ -7,25 +7,30 @@
 #include <sstream>
 #include "exp.h"
 #include "imp_value_visitor.h"
-#include "environment.hh" // Incluimos nuestro nuevo environment
+#include "environment.hh"
 
 using namespace std;
 class StringCollectorVisitor;
 class GoCodeGen : public ImpValueVisitor {
 private:
-    Environment env; // Usamos nuestro nuevo Environment
+    Environment env;
     int current_offset;
     std::unordered_map<std::string, std::string> string_literals;
     int label_counter;
     int string_counter;
     std::ostream& output;
-    string current_epilogue_label; // Para manejar los 'return'
+    string current_epilogue_label;
+
+    // Banderas para la generación condicional de helpers
+    bool needs_string_concat;
+    bool needs_string_compare;
 
     string new_label();
     void generate_prologue();
     void generate_epilogue();
     void generate_string_literals();
-    int calculate_stack_size(Program* p); // Para calcular el espacio total del stack
+    void generate_runtime_helpers();
+    int calculate_stack_size(Program* p);
 
 public:
     GoCodeGen(std::ostream& out = std::cout);

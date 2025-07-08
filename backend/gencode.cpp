@@ -3,12 +3,15 @@
 #include <algorithm>
 #include <stdexcept>
 #include <vector>
-#include "helpers_gencode.cpp" // Incluimos los visitors auxiliares
+#include "helpers_gencode.cpp" 
 
 using namespace std;
 
 GoCodeGen::GoCodeGen(std::ostream& out) 
-    : current_offset(0), label_counter(0), string_counter(0), output(out) {}
+    : current_offset(0), label_counter(0), string_counter(0), output(out) {
+    this->needs_string_concat = false;
+    this->needs_string_compare = false;
+}
 
 string GoCodeGen::new_label() { return "L" + to_string(label_counter++); }
 
@@ -37,8 +40,11 @@ void GoCodeGen::generateCode(Program* program) {
         label_counter = 0;
 
         generate_prologue();
-        program->accept(this);
+        program->accept(this); 
+
+        generate_runtime_helpers(); 
         generate_epilogue();
+
     } catch (const std::runtime_error& e) {
         cerr << "Error de generación de código: " << e.what() << endl;
     }
@@ -70,6 +76,47 @@ void GoCodeGen::generate_string_literals() {
     }
 }
 
+void GoCodeGen::generate_runtime_helpers() {
+    if (!needs_string_concat && !needs_string_compare) {
+        return; 
+    }
+
+    output << endl << "# --- Funciones de Ayuda para Runtime (Generadas Condicionalmente) ---" << endl;
+
+    if (this->needs_string_concat) {
+        output << "_concat_strings:" << endl;
+        output << "  pushq %rbp" << endl;
+        output << "  movq %rsp, %rbp" << endl;
+        output << "  subq $16, %rsp # Espacio para guardar args" << endl;
+        output << "  movq %rdi, -8(%rbp)" << endl;
+        output << "  movq %rsi, -16(%rbp)" << endl;
+        output << "  call strlen@PLT" << endl;
+        output << "  pushq %rax" << endl;
+        output << "  movq -16(%rbp), %rdi" << endl;
+        output << "  call strlen@PLT" << endl;
+        output << "  popq %rcx" << endl;
+        output << "  addq %rcx, %rax" << endl;
+        output << "  incq %rax" << endl;
+        output << "  movq %rax, %rdi" << endl;
+        output << "  call malloc@PLT" << endl;
+        output << "  movq -8(%rbp), %rsi" << endl;
+        output << "  movq %rax, %rdi" << endl;
+        output << "  call strcpy@PLT" << endl;
+        output << "  movq -16(%rbp), %rsi" << endl;
+        output << "  movq %rax, %rdi" << endl;
+        output << "  call strcat@PLT" << endl;
+        output << "  leave" << endl;
+        output << "  ret" << endl;
+    }
+
+    if (this->needs_string_compare) {
+        output << "_compare_strings:" << endl;
+        output << "  call strcmp@PLT" << endl;
+        output << "  ret" << endl;
+    }
+    output << "# --- Fin de Funciones de Ayuda ---" << endl;
+}
+
 int GoCodeGen::calculate_stmt_size(Stmt* stmt) {
     int size = 0;
     if (auto s = dynamic_cast<VarDecl*>(stmt)) {
@@ -78,10 +125,10 @@ int GoCodeGen::calculate_stmt_size(Stmt* stmt) {
                 size += env.get_struct(id_type->name).size * s->names.size();
             }
         } else {
-             size += s->names.size() * 8;
+            size += s->names.size() * 8;
         }
     } else if (auto s = dynamic_cast<ShortVarDecl*>(stmt)) {
-        size += s->identifiers.size() * 16;
+        size += s->identifiers.size() * 8;
     } else if (auto s = dynamic_cast<IfStmt*>(stmt)) {
         if(s->thenBlock) size += calculate_block_size(s->thenBlock);
         if (s->elseBlock) size += calculate_block_size(s->elseBlock);
@@ -117,9 +164,13 @@ void GoCodeGen::visit(FuncDecl* decl) {
     output << "  movq %rsp, %rbp" << endl;
 
     int stack_size = env.get_function(decl->name).stack_size;
+    // El 'pushq %rbp' ya desalinea la pila por 8 bytes.
+    // Necesitamos que el tamaño total restado a %rsp sea de la forma 16*N - 8
+    // para que la pila vuelva a estar alineada a 16 bytes.
+    // La forma más simple es redondear el tamaño necesario al múltiplo de 16 más cercano.
     if (stack_size > 0) {
-        if (stack_size % 16 != 0) stack_size = ((stack_size + 15) / 16) * 16;
-        if (stack_size > 0) output << "  subq $" << stack_size << ", %rsp" << endl;
+        stack_size = (stack_size + 15) & -16; // Redondea hacia arriba al múltiplo de 16
+        output << "  subq $" << stack_size << ", %rsp" << endl;
     }
 
     current_offset = 0;
@@ -130,16 +181,17 @@ void GoCodeGen::visit(FuncDecl* decl) {
         string param_name = param.first;
         Type* param_type_node = param.second;
         
-        if (auto id_type = dynamic_cast<IdentifierType*>(param_type_node)) {
-            if (env.has_struct(id_type->name)) {
-                StructInfo sinfo = env.get_struct(id_type->name);
-                env.add_var(param_name, param_offset, NOTYPE, sinfo.name);
-                param_offset += sinfo.size;
-            }
-        } else {
-            env.add_var(param_name, param_offset, TINT);
-            param_offset += 8;
+        ImpVType param_type_enum = NOTYPE;
+        string struct_name = "";
+
+        if (auto bt = dynamic_cast<BasicType*>(param_type_node)) {
+            param_type_enum = ImpValue::get_basic_type(bt->typeName);
+        } else if (auto id_type = dynamic_cast<IdentifierType*>(param_type_node)) {
+            struct_name = id_type->name;
         }
+        
+        env.add_var(param_name, param_offset, param_type_enum, struct_name);
+        param_offset += 8;
     }
 
     if (decl->body) {
@@ -180,50 +232,50 @@ void GoCodeGen::visit(AssignStmt* stmt) {
         int field_offset = sinfo.offsets.at(field_access->field);
         int total_offset = var_info.offset + field_offset;
         
-        output << "  movq %rax, " << total_offset << "(%rbp) # Asignar a " << obj_id->name << "." << field_access->field << endl;
+        output << "  movq %rax, " << total_offset << "(%rbp)" << endl;
     } else {
-        stmt->rhs->accept(this);
         if (auto id = dynamic_cast<IdentifierExp*>(stmt->lhs)) {
-            int offset = env.lookup(id->name).offset;
-            output << "  movq %rax, " << offset << "(%rbp) # Almacenar en " << id->name << endl;
+            VarInfo info = env.lookup(id->name);
+            
+            if (stmt->op == PLUS_ASSIGN_OP && info.type == TSTRING) {
+                this->needs_string_concat = true; 
+                stmt->lhs->accept(this);
+                output << "  pushq %rax" << endl;
+                stmt->rhs->accept(this);
+                output << "  movq %rax, %rsi" << endl;
+                output << "  popq %rdi" << endl;
+                output << "  call _concat_strings" << endl;
+                output << "  movq %rax, " << info.offset << "(%rbp)" << endl;
+            } else {
+                stmt->rhs->accept(this);
+                output << "  movq %rax, " << info.offset << "(%rbp)" << endl;
+            }
+        } else {
+             throw runtime_error("LHS de asignación debe ser una variable o campo de struct.");
         }
     }
 }
 
 void GoCodeGen::visit(ShortVarDecl* stmt) {
-    // Verificar que haya al menos un valor
-    if (stmt->values.empty() || stmt->identifiers.empty()) {
-        throw runtime_error("Declaración corta (:=) debe tener al menos un inicializador.");
+    if (stmt->values.empty() || stmt->identifiers.empty() || stmt->identifiers.size() != stmt->values.size()) {
+        throw runtime_error("Declaración corta (:=) inválida.");
     }
     
-    // Verificar que la cantidad de identificadores coincida con la cantidad de valores
-    if (stmt->identifiers.size() != stmt->values.size()) {
-        throw runtime_error("Cantidad de identificadores no coincide con cantidad de valores en declaración corta.");
-    }
-    
-    // Iteramos por cada par de identificador y valor
     auto var_it = stmt->identifiers.begin();
     auto val_it = stmt->values.begin();
     
-    while (var_it != stmt->identifiers.end() && val_it != stmt->values.end()) {
-        if (!(*val_it)) {
-            throw runtime_error("Valor nulo en declaración corta (:=).");
-        }
-        
-        // Procesar el valor actual
+    while (var_it != stmt->identifiers.end()) {
         ImpValue val_info = (*val_it)->accept(this);
         
         if (val_info.type == TSTRING) {
             current_offset -= 8;
             env.add_var(*var_it, current_offset, TSTRING);
-            output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *var_it << endl;
+            output << "  movq %rax, " << current_offset << "(%rbp)" << endl;
         } 
         else if (!val_info.struct_name.empty()) {
             StructInfo sinfo = env.get_struct(val_info.struct_name);
             current_offset -= sinfo.size;
             env.add_var(*var_it, current_offset, NOTYPE, sinfo.name);
-            
-            output << "# Inicializando struct " << *var_it << " en offset " << current_offset << endl;
             
             vector<pair<string, int>> sorted_fields;
             for(auto const& field_map_entry : sinfo.offsets) sorted_fields.push_back(field_map_entry);
@@ -235,7 +287,7 @@ void GoCodeGen::visit(ShortVarDecl* stmt) {
                 if (value_node_it != struct_lit->values.end()) {
                     (*value_node_it)->accept(this);
                     int total_offset = current_offset + field.second;
-                    output << "  movq %rax, " << total_offset << "(%rbp) # " << *var_it << "." << field.first << endl;
+                    output << "  movq %rax, " << total_offset << "(%rbp)" << endl;
                     ++value_node_it;
                 }
             }
@@ -243,10 +295,9 @@ void GoCodeGen::visit(ShortVarDecl* stmt) {
         else {
             current_offset -= 8;
             env.add_var(*var_it, current_offset, val_info.type);
-            output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *var_it << endl;
+            output << "  movq %rax, " << current_offset << "(%rbp)" << endl;
         }
         
-        // Avanzar a la siguiente variable y valor
         ++var_it;
         ++val_it;
     }
@@ -263,11 +314,7 @@ void GoCodeGen::visit(VarDecl* stmt) {
 
     if (auto id_type = dynamic_cast<IdentifierType*>(stmt->type)) {
         struct_name = id_type->name;
-        if (env.has_struct(struct_name)) {
-            var_size = env.get_struct(struct_name).size;
-        } else {
-            throw runtime_error("Uso de tipo no definido: " + struct_name);
-        }
+        var_size = env.get_struct(struct_name).size;
     } else if (auto basic = dynamic_cast<BasicType*>(stmt->type)) {
         var_type_enum = ImpValue::get_basic_type(basic->typeName);
     }
@@ -277,16 +324,13 @@ void GoCodeGen::visit(VarDecl* stmt) {
         env.add_var(*nameIt, current_offset, var_type_enum, struct_name);
         
         if (hasInitializers && valueIt != stmt->values.end()) {
-            // Process the initializer
-            ImpValue val_info = (*valueIt)->accept(this);
-            output << "  movq %rax, " << current_offset << "(%rbp) # Inicializar " << *nameIt << endl;
+            (*valueIt)->accept(this);
+            output << "  movq %rax, " << current_offset << "(%rbp)" << endl;
             ++valueIt;
         } else {
-            // Default initialization to 0
             for (int i = 0; i < var_size; i += 8) {
                 output << "  movq $0, " << current_offset + i << "(%rbp)" << endl;
             }
-            output << "  # Inicialización por defecto de " << *nameIt << endl;
         }
         
         ++nameIt;
@@ -310,12 +354,9 @@ void GoCodeGen::visit(IfStmt* stmt) {
     output << "  je " << else_label << endl;
     
     if (stmt->thenBlock) stmt->thenBlock->accept(this);
-    
     if (stmt->elseBlock) output << "  jmp " << end_label << endl;
-
     output << else_label << ":" << endl;
     if (stmt->elseBlock) stmt->elseBlock->accept(this);
-    
     if (stmt->elseBlock) output << end_label << ":" << endl;
 }
 
@@ -347,11 +388,40 @@ void GoCodeGen::visit(TypeDecl* decl) {}
 void GoCodeGen::visit(ImportDecl* decl) {}
 
 ImpValue GoCodeGen::visit(BinaryExp* exp) {
-    exp->left->accept(this);
+    ImpValue v_left = exp->left->accept(this);
     output << "  pushq %rax" << endl;
-    exp->right->accept(this);
+    ImpValue v_right = exp->right->accept(this);
     output << "  movq %rax, %rbx" << endl;
     output << "  popq %rax" << endl;
+
+    if (v_left.type == TSTRING && v_right.type == TSTRING) {
+        output << "  movq %rax, %rdi" << endl;
+        output << "  movq %rbx, %rsi" << endl;
+
+        switch(exp->op) {
+            case PLUS_OP:
+                this->needs_string_concat = true; 
+                output << "  call _concat_strings" << endl;
+                return ImpValue(TSTRING);
+            case EQ_OP:
+                this->needs_string_compare = true; 
+                output << "  call _compare_strings" << endl;
+                output << "  cmpq $0, %rax" << endl;
+                output << "  sete %al" << endl;
+                output << "  movzbq %al, %rax" << endl;
+                return ImpValue(TBOOL);
+            case NE_OP:
+                this->needs_string_compare = true; 
+                output << "  call _compare_strings" << endl;
+                output << "  cmpq $0, %rax" << endl;
+                output << "  setne %al" << endl;
+                output << "  movzbq %al, %rax" << endl;
+                return ImpValue(TBOOL);
+            default:
+                throw runtime_error("Operador binario no soportado para strings.");
+        }
+    }
+
     string set_instruction;
     switch (exp->op) {
         case PLUS_OP: output << "  addq %rbx, %rax" << endl; return ImpValue(TINT);
@@ -384,8 +454,10 @@ ImpValue GoCodeGen::visit(BinaryExp* exp) {
     }
     return ImpValue(TBOOL);
 compare:
-    output << "  cmpq %rbx, %rax" << endl; output << "  " << set_instruction << " %al" << endl;
-    output << "  movzbq %al, %rax" << endl; return ImpValue(TBOOL);
+    output << "  cmpq %rbx, %rax" << endl;
+    output << "  " << set_instruction << " %al" << endl;
+    output << "  movzbq %al, %rax" << endl;
+    return ImpValue(TBOOL);
 }
 
 ImpValue GoCodeGen::visit(UnaryExp* exp) {
@@ -415,25 +487,31 @@ ImpValue GoCodeGen::visit(BoolExp* exp) {
 ImpValue GoCodeGen::visit(IdentifierExp* exp) {
     VarInfo info = env.lookup(exp->name);
     if (info.struct_name.empty()) {
-        output << "  movq " << info.offset << "(%rbp), %rax  # Cargar " << exp->name << endl;
+        output << "  movq " << info.offset << "(%rbp), %rax" << endl;
     }
-    // Si es un struct, no cargamos nada. El llamador (FieldAccess, Assign, etc.)
-    // usará la información de 'info' para saber qué hacer.
     ImpValue val(info.type);
     val.struct_name = info.struct_name;
     return val; 
 }
 
 ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
+    if (exp->funcName == "len") {
+        if (exp->args.size() != 1) throw runtime_error("'len' espera 1 argumento.");
+        ImpValue arg_val = exp->args.front()->accept(this);
+        if (arg_val.type != TSTRING) throw runtime_error("'len' solo soporta strings.");
+        output << "  movq %rax, %rdi" << endl;
+        output << "  call strlen@PLT" << endl;
+        return ImpValue(TINT);
+    }
     if (exp->funcName == "fmt.Println") {
         for (auto arg : exp->args) {
             ImpValue val = arg->accept(this);
             if (val.type == TSTRING) {
+                output << "  movq %rax, %rsi" << endl;
                 output << "  leaq print_str_fmt(%rip), %rdi" << endl;
             } else if(val.type == TBOOL){
                 string false_label = new_label();
                 string end_label = new_label();
-                
                 output << "  cmpq $0, %rax" << endl;
                 output << "  je " << false_label << endl;
                 output << "  leaq print_bool_true(%rip), %rdi" << endl;
@@ -441,12 +519,13 @@ ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
                 output << false_label << ":" << endl;
                 output << "  leaq print_bool_false(%rip), %rdi" << endl;
                 output << end_label << ":" << endl;
+                // Para este caso, %rsi no se usa, ya que la cadena de formato no tiene %s
             } 
-            else {
+            else { // TINT
+                output << "  movq %rax, %rsi" << endl;
                 output << "  leaq print_fmt(%rip), %rdi" << endl;
             }
-            output << "  movq %rax, %rsi" << endl;
-            output << "  xorq %rax, %rax" << endl;
+            output << "  movl $0, %eax" << endl; // Para funciones variádicas, setear %eax a 0
             output << "  call printf@PLT" << endl;
         }
         return ImpValue();
@@ -455,46 +534,16 @@ ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
             throw runtime_error("Llamada a función no definida '" + exp->funcName + "'");
         }
         
-        int arg_space = 0;
-        vector<int> arg_sizes;
-        for(auto arg : exp->args){
-            if(auto id_exp = dynamic_cast<IdentifierExp*>(arg)){
-                if(env.check(id_exp->name) && !env.lookup(id_exp->name).struct_name.empty()){
-                    int size = env.get_struct(env.lookup(id_exp->name).struct_name).size;
-                    arg_space += size;
-                    arg_sizes.push_back(size);
-                    continue;
-                }
-            }
-            arg_space += 8;
-            arg_sizes.push_back(8);
-        }
-
-        if (arg_space > 0) output << "  subq $" << arg_space << ", %rsp" << endl;
-
-        int current_arg_offset = 0;
-        auto size_it = arg_sizes.begin();
-        for (auto arg : exp->args) {
-             if(auto id_exp = dynamic_cast<IdentifierExp*>(arg)){
-                if(env.check(id_exp->name) && !env.lookup(id_exp->name).struct_name.empty()){
-                    VarInfo var_info = env.lookup(id_exp->name);
-                    for(int i=0; i < *size_it; i+=8){
-                        output << "  movq " << var_info.offset + i << "(%rbp), %r10" << endl;
-                        output << "  movq %r10, " << current_arg_offset + i << "(%rsp)" << endl;
-                    }
-                    current_arg_offset += *size_it;
-                    ++size_it;
-                    continue;
-                }
-            }
-            arg->accept(this);
-            output << "  movq %rax, " << current_arg_offset << "(%rsp)" << endl;
-            current_arg_offset += *size_it;
-            ++size_it;
+        for (auto it = exp->args.rbegin(); it != exp->args.rend(); ++it) {
+            (*it)->accept(this);
+            output << "  pushq %rax" << endl;
         }
         
         output << "  call " << exp->funcName << endl;
-        if (arg_space > 0) output << "  addq $" << arg_space << ", %rsp" << endl;
+        
+        if (!exp->args.empty()) {
+            output << "  addq $" << exp->args.size() * 8 << ", %rsp" << endl;
+        }
         
         return ImpValue(env.get_function(exp->funcName).return_type);
     }
@@ -505,24 +554,23 @@ ImpValue GoCodeGen::visit(FieldAccessExp* exp) {
     if (!obj_id) throw runtime_error("Acceso a campos solo en variables.");
     
     VarInfo var_info = env.lookup(obj_id->name);
-    if (var_info.struct_name.empty()) throw runtime_error("Variable '" + obj_id->name + "' no es un struct.");
+    if (var_info.struct_name.empty()) throw runtime_error("Variable no es un struct.");
     
     StructInfo sinfo = env.get_struct(var_info.struct_name);
     if (sinfo.offsets.find(exp->field) == sinfo.offsets.end()) {
-        throw runtime_error("Struct '" + sinfo.name + "' no tiene campo '" + exp->field + "'.");
+        throw runtime_error("Struct no tiene campo '" + exp->field + "'.");
     }
     int field_offset = sinfo.offsets.at(exp->field);
     
     int total_offset = var_info.offset + field_offset;
-    output << "  movq " << total_offset << "(%rbp), %rax  # Acceder a " << obj_id->name << "." << exp->field << endl;
+    output << "  movq " << total_offset << "(%rbp), %rax" << endl;
 
     return ImpValue(sinfo.fields.at(exp->field).type);
 }
 
-// <<< --- IMPLEMENTACIÓN DE visit(StructLiteralExp) --- >>>
 ImpValue GoCodeGen::visit(StructLiteralExp* exp) {
     if (!env.has_struct(exp->typeName)) {
-        throw runtime_error("Uso de tipo struct no definido '" + exp->typeName + "' en un literal.");
+        throw runtime_error("Uso de tipo struct no definido en un literal.");
     }
     ImpValue val;
     val.type = NOTYPE;

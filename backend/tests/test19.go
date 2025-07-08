@@ -16,5 +16,5 @@ func main() {
 	c := Cubo{lado: 3}
 	p := PrismaRectangular{ancho: 2, largo: 3, alto: 4}
 
-	fmt.Println(p.alto)
+	fmt.Println("El alto de prisma es: ",p.alto)
 }
