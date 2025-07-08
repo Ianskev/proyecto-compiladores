@@ -125,10 +125,35 @@ int GoCodeGen::calculate_stmt_size(Stmt* stmt) {
                 size += env.get_struct(id_type->name).size * s->names.size();
             }
         } else {
-            size += s->names.size() * 8;
+             size += s->names.size() * 8;
         }
     } else if (auto s = dynamic_cast<ShortVarDecl*>(stmt)) {
-        size += s->identifiers.size() * 8;
+        // El código anterior era: size += s->identifiers.size() * 8;
+        // lo que asumía incorrectamente que toda variable declarada con := ocupa 8 bytes.
+        // El nuevo código inspecciona el tipo de la expresión para determinar el tamaño correcto.
+        auto value_it = s->values.begin();
+        for (const auto& id_name : s->identifiers) {
+            if (value_it != s->values.end()) {
+                Exp* value_exp = *value_it;
+                if (auto struct_lit = dynamic_cast<StructLiteralExp*>(value_exp)) {
+                    // Es un struct. Obtenemos su tamaño del entorno.
+                    if (env.has_struct(struct_lit->typeName)) {
+                        size += env.get_struct(struct_lit->typeName).size;
+                    } else {
+                        // Fallback por si el struct no se encuentra (no debería pasar)
+                        size += 8;
+                    }
+                } else {
+                    // No es un struct (es int, string, bool, etc.), asumimos 8 bytes.
+                    size += 8;
+                }
+                value_it++;
+            } else {
+                // Fallback en caso de que no coincidan identificadores y valores
+                size += 8;
+            }
+        }
+        // --- FIN DE LA CORRECCIÓN ---
     } else if (auto s = dynamic_cast<IfStmt*>(stmt)) {
         if(s->thenBlock) size += calculate_block_size(s->thenBlock);
         if (s->elseBlock) size += calculate_block_size(s->elseBlock);
