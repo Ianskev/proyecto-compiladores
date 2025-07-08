@@ -4,11 +4,11 @@
 #include <cctype>
 
 GoParser::GoParser(Scanner* sc) : scanner(sc), current(nullptr), previous(nullptr) {
-    advance(); // Load first token
+    advance(); // Inicializa el primer token
 }
 
 GoParser::~GoParser() {
-    // Tokens are managed by scanner
+    // Los tokens son manejados por el Scanner
 }
 
 Program* GoParser::parse() {
@@ -57,12 +57,13 @@ void GoParser::error(const string& message) {
 
 // Program ::= "package" ID ImportDeclList TopLevelDeclList
 Program* GoParser::parseProgram() {
-    // Parse package declaration
+    // Parseamos el package pero por las puras es porque solo acepta main xdd
     if (!match(Token::PACKAGE)) {
         error("Expected 'package' at start of program");
     }
     
-    // Accept either ID or MAIN for package name (main is a special case)
+    // Aceptamos un ID o MAIN como nombre del paquete
+    // En Go, el nombre del paquete es obligatorio y debe ser un identificador válido.
     string packageName;
     if (check(Token::ID)) {
         packageName = current->text;
@@ -74,10 +75,10 @@ Program* GoParser::parseProgram() {
         error("Expected package name after 'package'");
     }
     
-    // Parse imports
+    // Lista de declaraciones de importación
     list<ImportDecl*> imports = parseImportDeclList();
     
-    // Parse top-level declarations
+    // Parseamos las declaraciones de nivel superior
     list<VarDecl*> globalVars = parseGlobalVarDecls();
     list<TypeDecl*> types = parseTypeDecls();
     list<FuncDecl*> functions = parseFuncDecls();
@@ -112,7 +113,7 @@ ImportDecl* GoParser::parseImportDecl() {
     return new ImportDecl(path);
 }
 
-// Parse global variable declarations
+// Parseamos las declaraciones de variables globales
 list<VarDecl*> GoParser::parseGlobalVarDecls() {
     list<VarDecl*> vars;
     
@@ -123,7 +124,7 @@ list<VarDecl*> GoParser::parseGlobalVarDecls() {
     return vars;
 }
 
-// Parse type declarations
+// Parseamos las declaraciones de tipo
 list<TypeDecl*> GoParser::parseTypeDecls() {
     list<TypeDecl*> types;
     
@@ -134,7 +135,7 @@ list<TypeDecl*> GoParser::parseTypeDecls() {
     return types;
 }
 
-// Parse function declarations
+// Parseamos las declaraciones de función
 list<FuncDecl*> GoParser::parseFuncDecls() {
     list<FuncDecl*> functions;
     
@@ -185,7 +186,7 @@ FuncDecl* GoParser::parseFuncDecl() {
         error("Expected 'func'");
     }
     
-    // Accept either ID or MAIN for function name
+    // Acceptamos un ID o MAIN como nombre de la función
     string funcName;
     if (check(Token::ID)) {
         funcName = current->text;
@@ -225,7 +226,7 @@ Type* GoParser::parseType() {
         string typeName = current->text;
         advance();
         
-        // Check for basic types
+        // Chequeamos si es un tipo básico o un identificador
         if (typeName == "int" || typeName == "string" || typeName == "bool") {
             return new BasicType(typeName);
         } else {
@@ -250,7 +251,7 @@ StructType* GoParser::parseStructType() {
     list<pair<string, Type*>> fields;
     
     while (!check(Token::RBRACE) && !isAtEnd()) {
-        // Parse field names (can be multiple separated by comma, like "ancho, alto int")
+        // Parseamos los nombres de los campos (pueden ser múltiples)
         list<string> fieldNames;
         
         if (!check(Token::ID)) {
@@ -259,16 +260,16 @@ StructType* GoParser::parseStructType() {
         fieldNames.push_back(current->text);
         advance();
         
-        // Collect additional names that share the same type
+        // Chequeamos si hay más nombres de campos separados por comas
         while (match(Token::COMMA) && check(Token::ID)) {
             fieldNames.push_back(current->text);
             advance();
         }
         
-        // Now we should have the type
+        // Ahora debemos tener el tipo del campo
         Type* fieldType = parseType();
         
-        // Add all fields with this type
+        // Agregamos todos los campos con este tipo
         for (const string& name : fieldNames) {
             fields.push_back(make_pair(name, fieldType));
         }
@@ -287,7 +288,7 @@ list<pair<string, Type*>> GoParser::parseParamList() {
     
     if (!check(Token::RPAREN)) {
         while (true) {
-            // Parse parameter names (can be multiple separated by comma)
+            // Parseamos los nombres de los parámetros (pueden ser múltiples)
             list<string> paramNames;
             
             if (!check(Token::ID)) {
@@ -296,21 +297,21 @@ list<pair<string, Type*>> GoParser::parseParamList() {
             paramNames.push_back(current->text);
             advance();
             
-            // Collect additional names that share the same type
+            // Chequeamos si hay más nombres de parámetros separados por comas
             while (match(Token::COMMA) && check(Token::ID)) {
                 paramNames.push_back(current->text);
                 advance();
             }
             
-            // Now we should have the type
+            // Ahora debemos tener el tipo del parámetro
             Type* paramType = parseType();
             
-            // Add all parameters with this type
+            // Agregamos todos los parámetros con este tipo
             for (const string& name : paramNames) {
                 params.push_back(make_pair(name, paramType));
             }
             
-            // Check if there are more parameter groups
+            // Chequeamos si hay más parámetros
             if (!match(Token::COMMA)) {
                 break;
             }
@@ -360,10 +361,7 @@ Stmt* GoParser::parseStmt() {
     } else if (check(Token::RETURN)) {
         return parseReturnStmt();
     } else if (check(Token::LBRACE)) {
-        // Block statement - convert Block to ExprStmt for now
         Block* block = parseBlock();
-        // For simplicity, we'll treat blocks as statements by wrapping in ExprStmt
-        // This is a simplification - in real Go, blocks are statements
         return new ExprStmt(new NumberExp(0)); // Placeholder
     } else {
         return parseSimpleStmt();
@@ -373,12 +371,12 @@ Stmt* GoParser::parseStmt() {
 // SimpleStmt ::= Assignment | ShortVarDecl | ExprStmt | IncDecStmt
 Stmt* GoParser::parseSimpleStmt() {
     if (check(Token::ID)) {
-        // Parse identifier(s)
+        // Parseamos una declaración simple que puede ser una asignación, declaración corta o expresión
         list<string> identifiers;
         identifiers.push_back(current->text);
         advance();
         
-        // Check for additional identifiers (comma-separated)
+        // Chequeamos si hay más identificadores separados por comas
         while (match(Token::COMMA)) {
             if (!check(Token::ID)) {
                 error("Expected identifier after ','");
@@ -388,13 +386,13 @@ Stmt* GoParser::parseSimpleStmt() {
         }
         
         if (match(Token::SHORT_ASSIGN)) {
-            // Short variable declaration: id(s) := expr(s)
+            // Declaración corta de variable
             list<Exp*> values = parseExpressionList();
             return new ShortVarDecl(identifiers, values);
         } else if (check(Token::ASSIGN) || check(Token::PLUS_ASSIGN) || 
                    check(Token::MINUS_ASSIGN) || check(Token::MUL_ASSIGN) ||
                    check(Token::DIV_ASSIGN) || check(Token::MOD_ASSIGN)) {
-            // Assignment - only works with single identifier for simplicity
+            // Asignación
             if (identifiers.size() != 1) {
                 error("Multiple assignment targets not supported yet");
             }
@@ -413,7 +411,7 @@ Stmt* GoParser::parseSimpleStmt() {
             
             return new AssignStmt(lhs, rhs, op);
         } else if (check(Token::INC) || check(Token::DEC)) {
-            // Increment/Decrement - only works with single identifier
+            // Incremento o decremento
             if (identifiers.size() != 1) {
                 error("Increment/decrement only works with single variable");
             }
@@ -429,18 +427,18 @@ Stmt* GoParser::parseSimpleStmt() {
             
             return new IncDecStmt(identifiers.front(), isIncrement);
         } else {
-            // Expression statement - parse as full expression
+            // Expresión simple
             if (identifiers.size() != 1) {
                 error("Complex expressions not supported in this context");
             }
             
-            // Put back the identifier token for expression parsing
-            // This is a hack - we should refactor this
+            // Esto es un hack la verdad necesita hacerse refactorización
+            // para que las expresiones sean más robustas y no dependan de un solo identificador
             Exp* expr = parseExpressionFromIdentifier(identifiers.front());
             return new ExprStmt(expr);
         }
     } else {
-        // Expression statement
+        // Parseamos una expresión simple
         Exp* expr = parseExpression();
         return new ExprStmt(expr);
     }
@@ -458,7 +456,7 @@ IfStmt* GoParser::parseIfStmt() {
     Block* elseBlock = nullptr;
     if (match(Token::ELSE)) {
         if (check(Token::IF)) {
-            // else if - parse another if statement and wrap it in a block
+            // else-if statement
             IfStmt* elseIfStmt = parseIfStmt();
             list<Stmt*> stmts;
             stmts.push_back(elseIfStmt);
@@ -482,13 +480,13 @@ ForStmt* GoParser::parseForStmt() {
     Exp* condition = nullptr;
     Stmt* post = nullptr;
     
-    // Check if this is a simple for loop (just condition) or full for loop
+    // Chequeamos si hay un bloque de llaves inmediatamente
     if (!check(Token::LBRACE)) {
-        // Parse first part - could be init or condition
+        // Puede ser un bucle for simple o un bucle for con inicialización, condición y post
         Stmt* firstStmt = parseSimpleStmt();
         
         if (match(Token::SEMICOLON)) {
-            // This was init; now parse condition and post
+            // Esto es un bucle for con inicialización, condición y post
             init = firstStmt;
             
             if (!check(Token::SEMICOLON)) {
@@ -503,8 +501,7 @@ ForStmt* GoParser::parseForStmt() {
                 post = parseSimpleStmt();
             }
         } else {
-            // This was the condition (simple for loop)
-            // Convert statement to expression
+            // Esto es un bucle for simple sin inicialización, condición y post
             ExprStmt* exprStmt = dynamic_cast<ExprStmt*>(firstStmt);
             if (exprStmt) {
                 condition = exprStmt->expression;
@@ -684,21 +681,22 @@ Exp* GoParser::parsePrimaryExpr() {
         advance();
         
         if (match(Token::LPAREN)) {
-            // Function call
+            // Llamada a función
             list<Exp*> args = parseExpressionList();
             if (!match(Token::RPAREN)) {
                 error("Expected ')' after function arguments");
             }
             expr = new FunctionCallExp(name, args);
         } else if (!name.empty() && isupper(name[0]) && match(Token::LBRACE)) {
-            // Struct literal - only if name starts with uppercase (Go convention for types)
+            // Literal de estructura
+            // Asumimos que es un literal de estructura si el nombre empieza con mayúscula
             list<Exp*> values = parseStructLiteralValues();
             if (!match(Token::RBRACE)) {
                 error("Expected '}' after struct literal");
             }
             expr = new StructLiteralExp(name, values);
         } else {
-            // Simple identifier
+            // Identificador simple
             expr = new IdentifierExp(name);
         }
     } else if (match(Token::LPAREN)) {
@@ -711,7 +709,8 @@ Exp* GoParser::parsePrimaryExpr() {
         return nullptr;
     }
     
-    // Handle postfix operations: field access and indexing
+    // Manejamos el acceso a campos y la indexación
+    // Esto permite acceder a campos de estructuras o indexar arrays/slices (No hecho)
     while (expr != nullptr) {
         if (match(Token::DOT)) {
             if (!check(Token::ID)) {
@@ -723,9 +722,9 @@ Exp* GoParser::parsePrimaryExpr() {
         } else if (match(Token::LBRACKET)) {
             Exp* index = parseExpression();
             
-            // Check for slice syntax [start:end]
+            // Chequeamos si es una expresión de slice [start:end]
             if (match(Token::COLON)) {
-                // This is a slice expression
+                //  Esto es una expresión de slice
                 Exp* end = nullptr;
                 if (!check(Token::RBRACKET)) {
                     end = parseExpression();
@@ -735,7 +734,7 @@ Exp* GoParser::parsePrimaryExpr() {
                 }
                 expr = new SliceExp(expr, index, end);
             } else {
-                // Regular array indexing
+                // Indexación regular
                 if (!match(Token::RBRACKET)) {
                     error("Expected ']' after array index");
                 }
@@ -802,10 +801,10 @@ StructLiteralExp* GoParser::parseStructLiteral(const string& typeName) {
 
 // Helper for parsing expressions that start with an identifier
 Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
-    // Start with the identifier
+    // Empieza con un identificador simple
     Exp* expr = new IdentifierExp(identifierName);
     
-    // Handle postfix operations: field access, indexing, function calls
+    // Manejamos el acceso a campos y la indexación
     while (true) {
         if (match(Token::DOT)) {
             if (!check(Token::ID)) {
@@ -817,9 +816,9 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
         } else if (match(Token::LBRACKET)) {
             Exp* index = parseExpression();
             
-            // Check for slice syntax [start:end]
+            // Chequeamos si es una expresión de slice [start:end]
             if (match(Token::COLON)) {
-                // This is a slice expression
+                // Esto es una expresión de slice
                 Exp* end = nullptr;
                 if (!check(Token::RBRACKET)) {
                     end = parseExpression();
@@ -829,7 +828,7 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
                 }
                 expr = new SliceExp(expr, index, end);
             } else {
-                // Regular array indexing
+                // Indexación regular
                 if (!match(Token::RBRACKET)) {
                     error("Expected ']' after array index");
                 }
@@ -839,7 +838,7 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
             // Function call - for simplicity, we'll create the function name from the expression
             string funcName = identifierName;
             
-            // If we have a field access, create qualified name
+            // si el identificador es un acceso a campo, lo manejamos
             FieldAccessExp* fieldAccess = dynamic_cast<FieldAccessExp*>(expr);
             if (fieldAccess) {
                 IdentifierExp* base = dynamic_cast<IdentifierExp*>(fieldAccess->object);
@@ -859,7 +858,7 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
                   check(Token::PLUS) || check(Token::MINUS) || check(Token::MUL) || 
                   check(Token::DIV) || check(Token::MOD) || check(Token::AND) || 
                   check(Token::OR)) {
-            // Handle binary operators for comparison and arithmetic
+            // Manejamos operaciones binarias para comporaciones y aritméticas
             BinaryOp op;
             
             if (match(Token::LT)) op = LT_OP;
@@ -877,11 +876,11 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
             else if (match(Token::OR)) op = OR_OP;
             else break;
             
-            // Parse the right side of the binary operation
-            Exp* right = parseAdditiveExpr(); // Use appropriate precedence level
+            // Parseamos la expresión a la derecha de la operación
+            Exp* right = parseAdditiveExpr(); // Usamos precedencia
             expr = new BinaryExp(expr, right, op);
             
-            // Continue parsing operators if there are more
+            // Continuamos parseando más operaciones
             continue;
         } else {
             break;
@@ -891,27 +890,27 @@ Exp* GoParser::parseExpressionFromIdentifier(const string& identifierName) {
     return expr;
 }
 
-// Parse struct literal values (handles both positional and named field syntax)
+// Parsea los valores de un literal de estructura
 list<Exp*> GoParser::parseStructLiteralValues() {
     list<Exp*> values;
     
     if (!check(Token::RBRACE) && !isAtEnd()) {
-        // Simple approach: try to parse first element
+        // Si el primer token es un ID, asumimos que es un campo nombrado
         if (check(Token::ID)) {
             string firstId = current->text;
             advance();
             
             if (match(Token::COLON)) {
-                // This is named field syntax: field: value
+                // Esto es un campo nombrado
                 Exp* firstValue = parseExpression();
                 values.push_back(firstValue);
                 
-                // Continue with more named fields
+                // Continuamos con más campos nombrados
                 while (match(Token::COMMA)) {
                     if (!check(Token::ID)) {
                         error("Expected field name");
                     }
-                    advance(); // skip field name
+                    advance(); // Avanzamos al siguiente ID
                     
                     if (!match(Token::COLON)) {
                         error("Expected ':' after field name");
@@ -920,10 +919,10 @@ list<Exp*> GoParser::parseStructLiteralValues() {
                     values.push_back(parseExpression());
                 }
             } else {
-                // This is positional syntax - first token was an identifier expression
+                // Esto es un valor posicional
                 IdentifierExp* firstExpr = new IdentifierExp(firstId);
                 
-                // Handle any postfix operations on this identifier
+                // Manejamos el acceso a campos en caso de que sea un campo nombrado
                 while (true) {
                     if (match(Token::DOT)) {
                         if (!check(Token::ID)) {
@@ -939,13 +938,13 @@ list<Exp*> GoParser::parseStructLiteralValues() {
                 
                 values.push_back(firstExpr);
                 
-                // Continue with more positional values
+                // Continuamos con más valores posicionales
                 while (match(Token::COMMA)) {
                     values.push_back(parseExpression());
                 }
             }
         } else {
-            // Parse positional values starting with non-identifier
+            // Si no es un ID, asumimos que son valores posicionales
             values.push_back(parseExpression());
             while (match(Token::COMMA)) {
                 values.push_back(parseExpression());

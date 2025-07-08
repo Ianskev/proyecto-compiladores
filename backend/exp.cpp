@@ -229,7 +229,7 @@ void ForStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
 void ReturnStmt::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
 void VarDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
 
-// Declarations
+// Declaraciones
 void TypeDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
 void FuncDecl::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
 void Block::accept(ImpValueVisitor* visitor) { visitor->visit(this); }
