@@ -7,8 +7,8 @@ type Cubo struct {
 }
 
 type PrismaRectangular struct {
-	ancho int, 
-	largo int,
+	ancho int
+	largo int
 	alto int
 }
 
@@ -16,9 +16,5 @@ func main() {
 	c := Cubo{lado: 3}
 	p := PrismaRectangular{ancho: 2, largo: 3, alto: 4}
 
-	volumenCubo := c.lado * c.lado * c.lado
-	volumenPrisma := p.ancho * p.largo * p.alto
-	totalVolumen := volumenCubo + volumenPrisma
-
-	fmt.Println("Volumen del Cubo + Volumen del Prisma Rectangular:", totalVolumen)
+	fmt.Println(p.alto)
 }

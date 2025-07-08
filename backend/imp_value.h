@@ -14,6 +14,7 @@ public:
     int int_value;
     bool bool_value;
     string string_value;
+    string struct_name; // Para saber si es un struct
     
     ImpValue(ImpVType t);
     ImpValue(int v);

@@ -9,13 +9,25 @@
 
 using namespace std;
 
-// Información de una variable
 struct VarInfo {
     int offset;
     ImpVType type;
+    string struct_name;
 };
 
-// Información de una función
+struct FieldInfo {
+    string type_name;
+    ImpVType type;
+    int size;
+};
+
+struct StructInfo {
+    string name;
+    std::unordered_map<string, FieldInfo> fields; 
+    std::unordered_map<string, int> offsets;      
+    int size = 0;
+};
+
 struct FuncInfo {
     int stack_size; 
     ImpVType return_type;
@@ -25,6 +37,7 @@ class Environment {
 private:
     vector<unordered_map<string, VarInfo>> var_levels;
     unordered_map<string, FuncInfo> functions;
+    unordered_map<string, StructInfo> structs;
 
     int search_rib(const string& var) {
         int idx = var_levels.size() - 1;
@@ -43,6 +56,7 @@ public:
     void clear() {
         var_levels.clear();
         functions.clear();
+        structs.clear();
     }
 
     void add_level() {
@@ -57,12 +71,12 @@ public:
         return false;
     }
 
-    void add_var(const string& var, int offset, ImpVType type) {
+    void add_var(const string& var, int offset, ImpVType type, const string& struct_name = "") {
         if (var_levels.empty()) {
             cout << "Environment sin niveles: no se pueden agregar variables" << endl;
             exit(1);
         }
-        var_levels.back()[var] = {offset, type};
+        var_levels.back()[var] = {offset, type, struct_name};
     }
     
     bool check(const string& x) {
@@ -93,6 +107,26 @@ public:
         }
         return functions[name];
     }
+    
+    void add_struct(const string& name, const StructInfo& info) {
+        if (has_struct(name)) {
+             cerr << "Error: Redefinición del struct '" << name << "'" << endl;
+             exit(1);
+        }
+        structs[name] = info;
+    }
+
+    bool has_struct(const string& name) {
+        return structs.find(name) != structs.end();
+    }
+
+    StructInfo get_struct(const string& name) {
+        if (!has_struct(name)) {
+            cerr << "Error: Uso de tipo struct no definido '" << name << "'" << endl;
+            exit(1);
+        }
+        return structs[name];
+    }
 };
 
-#endif // GO_ENVIRONMENT_H
+#endif

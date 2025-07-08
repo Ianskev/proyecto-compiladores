@@ -44,7 +44,7 @@ public:
     virtual ImpValue visit(SliceExp* exp) = 0;
     virtual ImpValue visit(FunctionCallExp* exp) = 0;
     virtual ImpValue visit(StructLiteralExp* exp) = 0;
-    
+
     virtual void visit(ExprStmt* stmt) = 0;
     virtual void visit(AssignStmt* stmt) = 0;
     virtual void visit(ShortVarDecl* stmt) = 0;

@@ -17,7 +17,7 @@ outputs_dir = "outputs"
 source_files = [
     "main.cpp", "scanner.cpp", "token.cpp", 
     "parser.cpp", "exp.cpp", "visitor.cpp", 
-    "gencode.cpp", "imp_value.cpp"
+    "gencode.cpp", "imp_value.cpp", "helpers_gencode.cpp"
 ]
 
 if system == "Windows":
@@ -27,7 +27,7 @@ else:
 
 # Compilar el compilador de Go
 print("Compilando el compilador de Go...")
-compile_cmd = ["g++", "-o", executable] + source_files + ["-std=c++11"]
+compile_cmd = ["g++", "-o", executable] + source_files + ["-std=c++17"]
 result = subprocess.run(compile_cmd)
 
 if result.returncode != 0:

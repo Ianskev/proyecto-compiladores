@@ -4,7 +4,5 @@ import "fmt"
 
 func main() {
     s := "hola"
-    for i := 0; i < len(s); i++ {
-        fmt.Println(string(s[i]))
-    }
+    fmt.Println(s+" mundo" == "hola mundo")
 }
