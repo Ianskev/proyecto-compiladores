@@ -21,7 +21,7 @@ private:
     std::ostream& output;
 
     string new_label();
-    void generate_prologue(int stack_size);
+    void generate_prologue();
     void generate_epilogue();
     void generate_string_literals();
     int calculate_stack_size(Program* p); // Para calcular el espacio total del stack
