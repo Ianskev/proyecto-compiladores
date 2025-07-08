@@ -17,6 +17,18 @@ void GoCodeGen::generate_prologue() {
     cout << "main:" << endl;
     cout << "  pushq %rbp" << endl;
     cout << "  movq %rsp, %rbp" << endl;
+    
+    int stack_size = -current_offset;
+    
+    // Nos aseguramos de que sea mod 16 porque el call printf@PLT tambien consume
+    if (stack_size % 16 != 0) {
+        stack_size = ((stack_size + 15) / 16) * 16;
+    }
+    
+    // Reservamos espacio si es necesario
+    if (stack_size > 0) {
+        cout << "  subq $" << stack_size << ", %rsp" << endl;
+    }
 }
 
 void GoCodeGen::generate_epilogue() {
@@ -34,6 +46,10 @@ void GoCodeGen::generateCode(Program* program) {
     string_literals.clear();
     stack_offsets.clear();
     
+    // Process program to calculate stack offsets
+    program->accept(this);
+    
+    // Now generate the actual code
     generate_prologue();
     program->accept(this);
     generate_epilogue();
