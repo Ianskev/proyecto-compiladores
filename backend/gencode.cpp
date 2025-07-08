@@ -12,9 +12,6 @@ string GoCodeGen::new_label() {
 void GoCodeGen::generate_prologue() {
     cout << ".data" << endl;
     cout << "print_fmt: .string \"%ld\\n\"" << endl;
-    cout << "print_str_fmt: .string \"%s\\n\"" << endl;
-    cout << "print_bool_true: .string \"true\\n\"" << endl;
-    cout << "print_bool_false: .string \"false\\n\"" << endl;
     cout << ".text" << endl;
     cout << ".globl main" << endl;
     cout << "main:" << endl;
@@ -23,7 +20,7 @@ void GoCodeGen::generate_prologue() {
 }
 
 void GoCodeGen::generate_epilogue() {
-    cout << "  movl $0, %eax" << endl;
+    cout << "  movq $0, %rax" << endl;
     cout << "  leave" << endl;
     cout << "  ret" << endl;
     cout << ".section .note.GNU-stack,\"\",@progbits" << endl;
@@ -37,7 +34,6 @@ void GoCodeGen::generateCode(Program* program) {
     string_literals.clear();
     stack_offsets.clear();
     
-    // Generate the code
     generate_prologue();
     program->accept(this);
     generate_epilogue();
@@ -46,7 +42,6 @@ void GoCodeGen::generateCode(Program* program) {
 void GoCodeGen::visit(Program* program) {
     env.add_level();
     
-    // Process function declarations first
     for (auto func : program->functions) {
         func->accept(this);
     }
@@ -59,10 +54,6 @@ void GoCodeGen::visit(FuncDecl* decl) {
         env.add_level();
         long old_offset = current_offset;
         
-        // Process variable declarations in function
-        // (This would be done if we had local var declarations)
-        
-        // Process function body
         decl->body->accept(this);
         
         current_offset = old_offset;
@@ -132,16 +123,14 @@ void GoCodeGen::visit(IfStmt* stmt) {
     string else_label = new_label();
     string end_label = new_label();
     
-    // Evaluate condition
+    // Evaluar condicioon
     stmt->condition->accept(this);
     cout << "  cmpq $0, %rax" << endl;
     cout << "  je " << else_label << endl;
     
-    // Then block
     stmt->thenBlock->accept(this);
     cout << "  jmp " << end_label << endl;
     
-    // Else block
     cout << else_label << ":" << endl;
     if (stmt->elseBlock) {
         stmt->elseBlock->accept(this);
@@ -154,21 +143,21 @@ void GoCodeGen::visit(ForStmt* stmt) {
     string loop_start = new_label();
     string loop_end = new_label();
     
-    // Init
+    // Inicio de stm
     if (stmt->init) {
         stmt->init->accept(this);
     }
     
     cout << loop_start << ":" << endl;
     
-    // Condition
+    // Condicion
     if (stmt->condition) {
         stmt->condition->accept(this);
         cout << "  cmpq $0, %rax" << endl;
         cout << "  je " << loop_end << endl;
     }
     
-    // Body
+    // Curpo
     stmt->body->accept(this);
     
     // Post
@@ -184,16 +173,15 @@ void GoCodeGen::visit(ReturnStmt* stmt) {
     if (stmt->expression) {
         stmt->expression->accept(this);
     }
-    // Don't generate epilogue here, it will be generated at the end of main
 }
 
 ImpValue GoCodeGen::visit(BinaryExp* exp) {
     exp->left->accept(this);
-    cout << "  pushq %rax" << endl; // Save left operand
+    cout << "  pushq %rax" << endl; // Guardamos rax en el stack
     
     exp->right->accept(this);
-    cout << "  movq %rax, %rbx" << endl; // Move right operand to rbx
-    cout << "  popq %rax" << endl; // Restore left operand
+    cout << "  movq %rax, %rbx" << endl; // Movemos el derecho a rbx
+    cout << "  popq %rax" << endl; // Restauramos rax
     
     switch (exp->op) {
         case PLUS_OP:
@@ -206,7 +194,7 @@ ImpValue GoCodeGen::visit(BinaryExp* exp) {
             cout << "  imulq %rbx, %rax" << endl;
             break;
         case DIV_OP:
-            cout << "  cqto" << endl; // Sign extend rax to rdx:rax
+            cout << "  cqto" << endl;
             cout << "  idivq %rbx" << endl;
             break;
         case LT_OP:
@@ -258,7 +246,6 @@ ImpValue GoCodeGen::visit(UnaryExp* exp) {
     
     switch (exp->op) {
         case UPLUS_OP:
-            // No operation needed
             break;
         case UMINUS_OP:
             cout << "  negq %rax" << endl;
@@ -280,8 +267,6 @@ ImpValue GoCodeGen::visit(NumberExp* exp) {
 }
 
 ImpValue GoCodeGen::visit(StringExp* exp) {
-    // For string literals, we'll use a simple approach
-    // This is a simplified implementation
     cout << "  movq $0, %rax  # String: " << exp->value << endl;
     return ImpValue(exp->value);
 }
@@ -302,7 +287,6 @@ ImpValue GoCodeGen::visit(IdentifierExp* exp) {
 }
 
 ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
-    // Handle fmt.Println specially
     if (exp->funcName == "fmt.Println") {
         if (!exp->args.empty()) {
             auto arg = exp->args.front();
@@ -311,7 +295,7 @@ ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
             // For simplicity, assume integer values for now
             cout << "  leaq print_fmt(%rip), %rdi" << endl;
             cout << "  movq %rax, %rsi" << endl;
-            cout << "  xorq %rax, %rax" << endl; // Clear rax for printf
+            cout << "  xorq %rax, %rax" << endl; // Limpiamos RAX por funcion variadica
             cout << "  call printf" << endl;
         }
     }
@@ -319,30 +303,29 @@ ImpValue GoCodeGen::visit(FunctionCallExp* exp) {
     return ImpValue();
 }
 
-// Placeholder implementations for other visit methods
 ImpValue GoCodeGen::visit(FieldAccessExp* exp) { return ImpValue(); }
 ImpValue GoCodeGen::visit(IndexExp* exp) { return ImpValue(); }
 ImpValue GoCodeGen::visit(SliceExp* exp) { return ImpValue(); }
 ImpValue GoCodeGen::visit(StructLiteralExp* exp) { return ImpValue(); }
 
 void GoCodeGen::visit(VarDecl* stmt) {
-    // Handle variable declarations
+    // Declaraciones de variables
     auto nameIt = stmt->names.begin();
     auto valIt = stmt->values.begin();
     
     for (const string& name : stmt->names) {
-        // Allocate space on stack
-        current_offset -= 8; // 8 bytes for each variable (assuming 64-bit)
+        // Guardamos espacio en el stack
+        current_offset -= 8; // 8 bytes por cada variable
         stack_offsets[name] = current_offset;
         env.add_var(name, ImpValue());
         
-        // Initialize with value if provided
+        // Inicializamos con valor
         if (valIt != stmt->values.end()) {
             (*valIt)->accept(this);
             cout << "  movq %rax, " << stack_offsets[name] << "(%rbp)" << endl;
             ++valIt;
         } else {
-            // Initialize with zero if no value provided
+            // Inicializamos sin valor si es que no se da
             cout << "  movq $0, %rax" << endl;
             cout << "  movq %rax, " << stack_offsets[name] << "(%rbp)" << endl;
         }
